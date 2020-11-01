@@ -122,7 +122,7 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
          alias_number) for phase_difference, max_alias_number in zip(
              phase_differences, forbidden_region_alias_numbers)
         #CHANGED: if there are no collisions, there are no forbidden regions
-        for alias_number in numpy.arange(1, alias_number+1)
+        for alias_number in numpy.arange(1, max_alias_number+1)
         if max_alias_number > 0
     ]
     
