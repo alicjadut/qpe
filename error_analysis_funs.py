@@ -84,16 +84,14 @@ def estimate_phases(method, signal, cutoff, num_points):
 
 # ## Function to perform multi-order estimation
 
-def analyse_error_estimation(method,
+def multiorder_estimation(method,
                              phases, amplitudes,
                              delta, confidence_alpha, confidence_beta,
                              max_order, cutoff):
     
     betas = []
-    phase_estimates = []
     
-    estimation_errors = []
-    failure_booleans = []
+    estimates = []
     costs = []
 
     # Generate zeroth order phase estimates
@@ -109,23 +107,9 @@ def analyse_error_estimation(method,
     phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
     error_estimates = [delta for phase in phase_estimates]
     
-    # Add estimation errors and costs to data
-    estimation_errors.append([min([abs_phase_difference(phase_true, phase_est)
-                                   for phase_est in phase_estimates])
-                              for phase_true in phases])
+    # Add phase estimates and costs to data
     costs.append([cost for phase in phases])
-    spurious_phases = [phase_est for phase_est in phase_estimates
-                       if min([abs_phase_difference(phase_est, phase_true)
-                               for phase_true in phases]) > delta]
-    
-    # This is my current definition of 'failure' --- if we either see
-    # a spurious phase or don't pick up a given eigenvalue.
-    # Haven't looked into this too much though.
-    if len(spurious_phases) == 0:
-        failure_booleans.append([False for phase in phases])
-    else:
-        failure_booleans.append([True for phase in phases])
-    
+    estimates.append(list(phase_estimates))
     
 
     for d in range(1, max_order+1): # Iterate over 5 more orders of QPE
@@ -137,8 +121,7 @@ def analyse_error_estimation(method,
             betas.append(beta_finder(phase_estimates, 2*delta, multiplier, np.pi / (2 * delta)))
         except ValueError:
             print('Couldnt find good beta, exiting')
-            failure_booleans.append(True)
-            return estimation_errors, failure_booleans, costs            
+            break          
         multiplier = np.prod(betas)
 
         # Calculate the signal requirements at this order and the assoc. cost
@@ -158,34 +141,61 @@ def analyse_error_estimation(method,
         # If we have completely failed, do it gracefully
         if len(phase_estimates) == 0:
             print('No phases left, exiting')
-            failure_booleans.append(True)
             return estimation_errors, failure_booleans, costs
         
-        # Add estimation errors and costs to data
-        estimation_errors.append([min([abs_phase_difference(phase_true, phase_est)
-                                       for phase_est in phase_estimates])
-                                  for phase_true in phases])
+        # Add phase estimates errors and costs to data
         costs.append([cost for phase in phases])
-        
-        # This is my current definition of 'failure' --- if we either see
-        # a spurious phase or don't pick up a given eigenvalue.
-        # Haven't looked into this too much though.
-        spurious_phases = [phase_est for phase_est in phase_estimates
-                           if min([abs_phase_difference(phase_est, phase_true)
-                                   for phase_true in phases]) > delta]
-        if len(spurious_phases) == 0 and max(estimation_errors[-1]) < delta:
-            failure_booleans.append([False for phase in phases])
-        else:
-            failure_booleans.append([True for phase in phases])
+        estimates.append(phase_estimates)
             
+    return estimates, costs    
 
-    return estimation_errors, failure_booleans, costs
+
+def get_estimation_errors(all_phase_estimates, phases):
+    estimation_errors = []
+    for phase_estimates in all_phase_estimates:
+        estimation_errors.append([min([abs_phase_difference(phase_true, phase_est)
+                                   for phase_est in phase_estimates])
+                              for phase_true in phases])
+    return(estimation_errors)
+
+def get_estimation_failures(all_phase_estimates, phases, delta, max_order):
+    # This is my current definition of 'failure' --- if we either see
+    # a spurious phase or don't pick up a given eigenvalue.
+    # Haven't looked into this too much though.
+        failure_booleans = []
+        for phase_estimates in all_phase_estimates:
+            spurious_phases = [phase_est for phase_est in phase_estimates
+                       if min([abs_phase_difference(phase_est, phase_true)
+                               for phase_true in phases]) > delta]
+            errors = get_estimation_errors([phase_estimates], phases)
+            if len(spurious_phases) == 0 and np.max(errors) < delta:
+                failure_booleans.append([False for phase in phases])
+            else:
+                failure_booleans.append([True for phase in phases])
+        if(len(failure_booleans) < max_order):
+            failure_booleans.append(True)
+        return(failure_booleans)
+
+def analyse_error_estimation(method,
+                             phases, amplitudes,
+                             delta, confidence_alpha, confidence_beta,
+                             max_order, cutoff):
+    
+    all_phase_estimates, costs = multiorder_estimation(method,
+                             phases, amplitudes,
+                             delta, confidence_alpha, confidence_beta,
+                             max_order, cutoff)
+    
+    errors = get_estimation_errors(all_phase_estimates, phases)
+    failure_booleans = get_estimation_failures(all_phase_estimates, phases, delta, max_order)
+
+    return errors, failure_booleans, costs
 
 
 # ## Running script on some test data
 
 
-def get_estimation_errors(method, num_phases, max_order, delta, confidence_alpha, confidence_beta, cutoff, num_repetitions):
+def run_estimation_errors(method, num_phases, max_order, delta, confidence_alpha, confidence_beta, cutoff, num_repetitions):
     est_errors_big = []
     failure_booleans_big = []
     costs_big = []
