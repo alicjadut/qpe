@@ -134,7 +134,7 @@ def analyse_error_estimation(method,
         # Calculate the new best multiplier from the previous phase data.
         # If this doesn't work, fail gracefully.
         try:
-            betas.append(beta_finder(phase_estimates, delta, multiplier, np.pi / (2 * delta)))
+            betas.append(beta_finder(phase_estimates, 2*delta, multiplier, np.pi / (2 * delta)))
         except ValueError:
             print('Couldnt find good beta, exiting')
             failure_booleans.append(True)
