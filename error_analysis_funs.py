@@ -62,6 +62,7 @@ def get_gk(signal_length, phases, amplitudes, num_samples, multiplier):
 
 
 def estimate_phases(method, signal, cutoff, num_points):
+   
     
     if(method == 'qeep'):
         spectral_function = qeep_solve(signal, num_points)
@@ -69,17 +70,16 @@ def estimate_phases(method, signal, cutoff, num_points):
         # Somma's method has a way to produce a 'better' phase estimation
         # --- with the cost that it might not estimate all phases.
         # But we should still use it in the final estimation.
-        phase_estimates = qeep_approximate_single_eigenvalues(spectral_function, cutoff)
-        
+        return qeep_approximate_single_eigenvalues(spectral_function, cutoff)
         
     if(method == 'qeep-sparse'):
         spectral_function = qeep_solve(signal, num_points)
-        phase_estimates = qeep_sparse_solve(spectral_function, cutoff)
+        return qeep_sparse_solve(spectral_function, cutoff)
         
     if(method == 'pencil'):
-        phase_estimates = prony_phases(signal, cutoff)
+        return prony_phases(signal, cutoff)
     
-    return(phase_estimates)
+    raise ValueError(f'Wrong method: {method}')
 
 
 # ## Function to perform multi-order estimation
@@ -141,7 +141,7 @@ def multiorder_estimation(method,
         # If we have completely failed, do it gracefully
         if len(phase_estimates) == 0:
             print('No phases left, exiting')
-            return estimation_errors, failure_booleans, costs
+            break
         
         # Add phase estimates errors and costs to data
         costs.append([cost for phase in phases])
