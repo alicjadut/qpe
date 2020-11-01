@@ -119,10 +119,11 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
     forbidden_region_lhs = [
         (-_alias_region_left_side(alias_number, prev_multiplier, error,
                                   phase_difference), phase_difference,
-         alias_number) for phase_difference, alias_number in zip(
+         alias_number) for phase_difference, max_alias_number in zip(
              phase_differences, forbidden_region_alias_numbers)
         #CHANGED: if there are no collisions, there are no forbidden regions
-        if alias_number > 0
+        for alias_number in np.arange(1, alias_number+1)
+        if max_alias_number > 0
     ]
     
     if not  forbidden_region_lhs:
