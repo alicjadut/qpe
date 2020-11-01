@@ -116,7 +116,7 @@ def analyse_error_estimation(method,
     costs.append([cost for phase in phases])
     spurious_phases = [phase_est for phase_est in phase_estimates
                        if min([abs_phase_difference(phase_est, phase_true)
-                               for phase_true in phases]) < delta]
+                               for phase_true in phases]) > delta]
     
     # This is my current definition of 'failure' --- if we either see
     # a spurious phase or don't pick up a given eigenvalue.
