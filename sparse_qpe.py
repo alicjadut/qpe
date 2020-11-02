@@ -105,7 +105,7 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
     phase_differences = [
         abs(phase1 - phase2) for j, phase1 in enumerate(phases)
         for phase2 in phases[j:]
-        if abs(phase1 - phase2) > (error+max_beta*error+2*numpy.pi) / prev_multiplier
+        if abs(phase1 - phase2) > (numpy.pi - error)/prev_multiplier/max_beta - error/prev_multiplier
     ]
     if not phase_differences:
         return max_beta
@@ -122,7 +122,7 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
          alias_number) for phase_difference, max_alias_number in zip(
              phase_differences, forbidden_region_alias_numbers)
         #CHANGED: if there are no collisions, there are no forbidden regions
-        for alias_number in numpy.arange(1, max_alias_number+1)
+        for alias_number in numpy.arange(1, max_alias_number+1)#[max_alias_number]#
         if max_alias_number > 0
     ]
     
