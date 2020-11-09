@@ -82,7 +82,7 @@ def abs_phase_difference(angle1, angle2):
     return diff
 
 
-def beta_finder(phases, error, prev_multiplier, max_beta=None):
+def beta_finder(phases, delta, prev_multiplier, max_beta=None):
     '''Finds the largest possible multiplier for unambiguous phase estimation
 
     Single-ancilla QPE requires that one estimates a signal at
@@ -100,12 +100,17 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
             other do not need to be resolved.
         prev_multiplier [float] -- The previous multiplier used.
     '''
+    
+    error = delta
     if max_beta is None:
         max_beta = numpy.pi / error - 1
+        
+        
+    diff_bound = delta/prev_multiplier
     phase_differences = [
         abs(phase1 - phase2) for j, phase1 in enumerate(phases)
         for phase2 in phases[j:]
-        if abs(phase1 - phase2) > (numpy.pi - error)/prev_multiplier/max_beta - error/prev_multiplier
+        if abs(phase1 - phase2) > diff_bound
     ]
     if not phase_differences:
         return max_beta
@@ -119,11 +124,9 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
     forbidden_region_lhs = [
         (-_alias_region_left_side(alias_number, prev_multiplier, error,
                                   phase_difference), phase_difference,
-         alias_number) for phase_difference, max_alias_number in zip(
+         alias_number) for phase_difference, alias_number in zip(
              phase_differences, forbidden_region_alias_numbers)
-        #CHANGED: if there are no collisions, there are no forbidden regions
-        for alias_number in numpy.arange(1, max_alias_number+1)#[max_alias_number]#
-        if max_alias_number > 0
+        if alias_number > 0
     ]
     
     if not  forbidden_region_lhs:
