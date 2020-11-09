@@ -279,3 +279,21 @@ def plot_estimation_errors(costs_big, est_errors_big):
     plt.legend()#fontsize=22)
     plt.xlabel('Total number of unitary applications')
     plt.ylabel('Estimator error')
+    
+def plot_phase_estimates(true_phases, phase_estimates, max_order):
+
+    min_rad = 5
+
+    plt.polar()
+    for phase in true_phases:
+        plt.plot([0, phase], [0, max_order + min_rad], color = 'black')
+    for j,est in enumerate(phase_estimates):
+        plt.scatter(est, [5+j]*len(est), color = 'red', marker = 'x', s = 20)
+    plt.gca().axes.xaxis.set_ticklabels([])
+    plt.gca().axes.yaxis.set_ticklabels([])
+    plt.gca().axes.yaxis.set_ticks(range(min_rad,max_order+min_rad))
+
+    plt.xlabel('Radius = order')
+    plt.plot([], [], color = 'black', label = 'True phases')
+    plt.scatter([],[], color = 'red', marker = 'x', s = 20, label = 'Estimates')
+    plt.legend()
