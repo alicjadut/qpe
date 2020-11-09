@@ -100,13 +100,14 @@ def beta_finder(phases, delta, prev_multiplier, max_beta=None):
             other do not need to be resolved.
         prev_multiplier [float] -- The previous multiplier used.
     '''
-    
-    error = delta
+    #CHANGED
+    error = 2*delta
     if max_beta is None:
         max_beta = numpy.pi / error - 1
         
-        
-    diff_bound = delta/prev_multiplier
+    #CHANGED
+    diff_bound = (numpy.pi - 2*delta)/prev_multiplier/max_beta - 2*delta/prev_multiplier
+    #diff_bound = delta/prev_multiplier
     phase_differences = [
         abs(phase1 - phase2) for j, phase1 in enumerate(phases)
         for phase2 in phases[j:]
@@ -121,13 +122,22 @@ def beta_finder(phases, delta, prev_multiplier, max_beta=None):
 
     # We want to put these entires in a priority queue, but we want
     # to select the greatest value of beta first, so we flip the sign.
+    #CHANGED
     forbidden_region_lhs = [
         (-_alias_region_left_side(alias_number, prev_multiplier, error,
                                   phase_difference), phase_difference,
-         alias_number) for phase_difference, alias_number in zip(
+         alias_number) for phase_difference, max_alias_number in zip(
              phase_differences, forbidden_region_alias_numbers)
-        if alias_number > 0
+        for alias_number in numpy.arange(1, max_alias_number+1)
+        if max_alias_number > 0
     ]
+    #forbidden_region_lhs = [
+    #    (-_alias_region_left_side(alias_number, prev_multiplier, error,
+    #                              phase_difference), phase_difference,
+    #     alias_number) for phase_difference, alias_number in zip(
+    #         phase_differences, forbidden_region_alias_numbers)
+    #    if alias_number > 0
+    #]
     
     if not  forbidden_region_lhs:
         return(max_beta)
