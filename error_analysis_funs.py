@@ -164,6 +164,22 @@ def multiorder_estimation(method,
         gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier)
         aliased_phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
         aliased_error_estimates = [eps for phase in aliased_phase_estimates]
+        
+        #If the new estimates are not close enough to the old estimates, exit
+        if(
+            np.max([
+                np.min(
+                    [abs_phase_difference(multiplier*phi, theta)
+                     for phi in phase_estimates]
+                ) for theta in aliased_phase_estimates]) > 2*eps*(1+kappas[-1])
+            or
+            np.max([
+                np.min(
+                    [abs_phase_difference(multiplier*phi, theta)
+                     for theta in aliased_phase_estimates]
+                ) for phi in phase_estimates]) > 2*eps*(1+kappas[-1])
+        ):
+            return estimates, costs
 
         # Match phases --- generate new estimates of phases at each order
         phase_estimates, error_estimates = match_phases(
