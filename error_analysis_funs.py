@@ -18,7 +18,8 @@ warnings.simplefilter("always")
 
 from qeep_estimators import (
     qeep_solve, qeep_sparse_solve, get_signal_requirements,
-    qeep_approximate_single_eigenvalues, get_phase_values)
+    qeep_approximate_single_eigenvalues, get_phase_values,
+    qeep_conservative_solve)
 from sparse_qpe import(
     kappa_finder, match_phases, abs_phase_difference, _wn_diff)
 
@@ -63,6 +64,9 @@ def get_gk(signal_length, phases, amplitudes, num_samples, multiplier):
 
 def estimate_phases(method, signal, cutoff, num_points):
    
+    if(method == 'qeep-cons'):
+        spectral_function = qeep_solve(signal, num_points)
+        return qeep_conservative_solve(spectral_function, cutoff)
     
     if(method == 'qeep'):
         spectral_function = qeep_solve(signal, num_points)
