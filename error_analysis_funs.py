@@ -81,12 +81,26 @@ def estimate_phases(method, signal, cutoff, num_points):
     
     raise ValueError(f'Wrong method: {method}')
 
+def shift_value(phases):
+    
+    #zeta is the number between 2 consecutive phases that are furtherst away
+    phases = np.sort(phases)
+    phase_differences = [
+        abs_phase_difference(phases[j], phases[(j+1) % len(phases)]) for j in range(len(phases))
+    ]
+    ix = np.argmax(phase_differences)
+    zeta = (phases[(ix+1) % len(phases)]+
+            phases[ix])/2
+    #d_zeta is half of this largest distance
+    d_zeta = np.max(phase_differences)/2
+    shift_val = zeta+d_zeta/2
+    return shift_val
 
 # ## Function to perform multi-order estimation
 
 def multiorder_estimation(method,
                              phases, amplitudes,
-                             eps, confidence_alpha, confidence_beta,
+                             eps, eps0, confidence_alpha, confidence_beta,
                              final_error, cutoff):
     
     max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
@@ -101,7 +115,7 @@ def multiorder_estimation(method,
     
     # Calculate the signal requirements at this order and the assoc. cost
     confidence = confidence_alpha + confidence_beta
-    num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
+    num_points, signal_length, num_samples = get_signal_requirements(confidence, eps0)
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
     # Get the new signal and estimate aliased phases from this.
@@ -112,6 +126,11 @@ def multiorder_estimation(method,
     # Add phase estimates and costs to data
     costs.append([cost for phase in phases])
     estimates.append(list(phase_estimates))
+    
+    # Shift the unitary
+    shift_val = shift_value(phase_estimates)
+    phases = phases - shift_val
+    phase_estimates = phase_estimates - shift_val
     
     d=0
 
@@ -148,7 +167,7 @@ def multiorder_estimation(method,
         
         # Add phase estimates errors and costs to data
         costs.append([cost for phase in phases])
-        estimates.append(phase_estimates)
+        estimates.append(phase_estimates+shift_val)
             
     return estimates, costs    
 
