@@ -91,7 +91,7 @@ def shift_value(phases):
     ix = np.argmax(phase_differences)
     phase1 = phases[ix]
     phase2 = phases[(ix+1) % len(phases)]
-    zeta = (phase1+phase2)/2+(1-_wn_diff(phase1, phase2))*np.pi/2
+    zeta = (phase1+phase2)/2+(1-_wn_diff(phase1, phase2))*np.pi
     #d_zeta is half of this largest distance
     d_zeta = np.max(phase_differences)/2
     shift_val = zeta+d_zeta/2
