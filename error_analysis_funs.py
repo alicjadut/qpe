@@ -87,7 +87,9 @@ def estimate_phases(method, signal, cutoff, num_points):
 def multiorder_estimation(method,
                              phases, amplitudes,
                              delta, confidence_alpha, confidence_beta,
-                             max_order, cutoff):
+                             final_error, cutoff):
+    
+    max_order = np.ceil(np.log2(2*delta/final_error)).astype('int')
     
     betas = []
     
@@ -111,8 +113,9 @@ def multiorder_estimation(method,
     costs.append([cost for phase in phases])
     estimates.append(list(phase_estimates))
     
+    d=0
 
-    for d in range(1, max_order+1): # Iterate over 5 more orders of QPE
+    while(multiplier < 2*delta/final_error and d<max_order+1):
 
         confidence = confidence_alpha + confidence_beta * (max_order - d) / max_order
         # Calculate the new best multiplier from the previous phase data.
