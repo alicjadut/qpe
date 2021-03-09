@@ -137,6 +137,13 @@ def multiorder_estimation(method,
     except ValueError:
         print(r'Couldnt find good $k_1$, exiting')
         return  
+    #The first multiplier has to be larger than 1/d_zeta
+    if multiplier < 2/np.max([
+        abs_phase_difference(np.sort(phases)[j], np.sort(phases)[(j+1) % len(phases)])
+        for j in range(len(phases))
+    ]):
+        print(r'Got $k_1 < d_\zeta^{-1}$, exiting')
+        return 
     kappas = [multiplier]
     
     d=1
