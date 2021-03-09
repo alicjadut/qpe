@@ -121,7 +121,7 @@ def multiorder_estimation(method,
         # Calculate the new best multiplier from the previous phase data.
         # If this doesn't work, fail gracefully.
         try:
-            betas.append(beta_finder(phase_estimates, eps, multiplier, np.pi / (2 * eps)))
+            betas.append(beta_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
         except ValueError:
             print('Couldnt find good beta, exiting')
             break          

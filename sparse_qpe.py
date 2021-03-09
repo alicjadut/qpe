@@ -81,7 +81,7 @@ def abs_phase_difference(angle1, angle2):
         return 2 * numpy.pi - diff
     return diff
 
-
+#TO DO: after Appendix C is fixed this needs to be checked
 def beta_finder(phases, error, prev_multiplier, max_beta=None):
     '''Finds the largest possible multiplier for unambiguous phase estimation
 
@@ -95,12 +95,11 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
         phases [list of floats] -- The phases obtained at the previous
             order to an accuracy of error / prev_multiplier
         error [float] -- error bars on individual phases (i.e. half the
-            size of the confidence interval)
+            size of the confidence interval) (=2\epsilon)
         prev_multiplier [float] -- The previous multiplier used.
     '''
     if max_beta is None:
-        max_beta = numpy.pi / (
-            2 * error * (1 + error / (numpy.pi * prev_multiplier))) - 1
+        max_beta = numpy.pi / error
 
     phase_differences = [
         abs(phase1 - phase2) for j, phase1 in enumerate(phases)
@@ -221,7 +220,7 @@ def _alias_region_unnecessary(phase_difference, prev_multiplier, beta, error):
         error [float] -- error in estimation
     '''
     if phase_difference < (
-            numpy.pi - 2 * error * (1 + beta)) / (beta * prev_multiplier):
+            numpy.pi - error * (1 + beta)) / (beta * prev_multiplier):
         return True
     return False
 
