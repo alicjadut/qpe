@@ -136,7 +136,7 @@ def multiorder_estimation(method,
     # Shift the unitary
     shift_val = shift_value(phase_estimates, eps0)
     phases = phases - shift_val
-    phase_estimates = phase_estimates - shift_val
+    phase_estimates = (phase_estimates - shift_val) % (2*np.pi)
     
     
     #Find the first multiplier
@@ -213,11 +213,12 @@ def multiorder_estimation(method,
             np.max(phase_estimates) > np.pi*(2*np.floor(multiplier)-1)/multiplier
         ):
             print('Got phase estimates outside of the allowed region, exiting')
+            print(phase_estimates)
             break
         
         # Add phase estimates errors and costs to data
         costs.append([cost for phase in phases])
-        estimates.append(phase_estimates+shift_val)
+        estimates.append((phase_estimates+shift_val) % (2*np.pi))
         
         d+=1
             
