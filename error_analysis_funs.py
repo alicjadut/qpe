@@ -86,10 +86,10 @@ def estimate_phases(method, signal, cutoff, num_points):
 
 def multiorder_estimation(method,
                              phases, amplitudes,
-                             delta, confidence_alpha, confidence_beta,
+                             eps, confidence_alpha, confidence_beta,
                              final_error, cutoff):
     
-    max_order = np.ceil(np.log2(2*delta/final_error)).astype('int')
+    max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
     
     betas = []
     
@@ -101,13 +101,13 @@ def multiorder_estimation(method,
     
     # Calculate the signal requirements at this order and the assoc. cost
     confidence = confidence_alpha + confidence_beta
-    num_points, signal_length, num_samples = get_signal_requirements(confidence, delta)
+    num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
     # Get the new signal and estimate aliased phases from this.
     gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier)
     phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
-    error_estimates = [delta for phase in phase_estimates]
+    error_estimates = [eps for phase in phase_estimates]
     
     # Add phase estimates and costs to data
     costs.append([cost for phase in phases])
@@ -115,26 +115,26 @@ def multiorder_estimation(method,
     
     d=0
 
-    while(multiplier < 2*delta/final_error and d<max_order+1):
+    while(multiplier < 2*eps/final_error and d<max_order+1):
 
         confidence = confidence_alpha + confidence_beta * (max_order - d) / max_order
         # Calculate the new best multiplier from the previous phase data.
         # If this doesn't work, fail gracefully.
         try:
-            betas.append(beta_finder(phase_estimates, delta, multiplier, np.pi / (2 * delta)))
+            betas.append(beta_finder(phase_estimates, eps, multiplier, np.pi / (2 * eps)))
         except ValueError:
             print('Couldnt find good beta, exiting')
             break          
         multiplier = np.prod(betas)
 
         # Calculate the signal requirements at this order and the assoc. cost
-        num_points, signal_length, num_samples = get_signal_requirements(confidence, delta)
+        num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
         cost += sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
         
         # Get the new signal and estimate aliased phases from this.
         gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier)
         aliased_phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
-        aliased_error_estimates = [delta for phase in aliased_phase_estimates]
+        aliased_error_estimates = [eps for phase in aliased_phase_estimates]
 
         # Match phases --- generate new estimates of phases at each order
         phase_estimates, error_estimates = match_phases(
@@ -161,7 +161,7 @@ def get_estimation_errors(all_phase_estimates, phases):
                               for phase_true in phases])
     return(estimation_errors)
 
-def get_estimation_failures(all_phase_estimates, phases, delta, max_order):
+def get_estimation_failures(all_phase_estimates, phases, eps, max_order):
     # This is my current definition of 'failure' --- if we either see
     # a spurious phase or don't pick up a given eigenvalue.
     # Haven't looked into this too much though.
@@ -169,9 +169,9 @@ def get_estimation_failures(all_phase_estimates, phases, delta, max_order):
         for phase_estimates in all_phase_estimates:
             spurious_phases = [phase_est for phase_est in phase_estimates
                        if min([abs_phase_difference(phase_est, phase_true)
-                               for phase_true in phases]) > delta]
+                               for phase_true in phases]) > eps]
             errors = get_estimation_errors([phase_estimates], phases)
-            if len(spurious_phases) == 0 and np.max(errors) < delta:
+            if len(spurious_phases) == 0 and np.max(errors) < eps:
                 failure_booleans.append([False for phase in phases])
             else:
                 failure_booleans.append([True for phase in phases])
@@ -181,16 +181,16 @@ def get_estimation_failures(all_phase_estimates, phases, delta, max_order):
 
 def analyse_error_estimation(method,
                              phases, amplitudes,
-                             delta, confidence_alpha, confidence_beta,
+                             eps, confidence_alpha, confidence_beta,
                              max_order, cutoff):
     
     all_phase_estimates, costs = multiorder_estimation(method,
                              phases, amplitudes,
-                             delta, confidence_alpha, confidence_beta,
+                             eps, confidence_alpha, confidence_beta,
                              max_order, cutoff)
     
     errors = get_estimation_errors(all_phase_estimates, phases)
-    failure_booleans = get_estimation_failures(all_phase_estimates, phases, delta, max_order)
+    failure_booleans = get_estimation_failures(all_phase_estimates, phases, eps, max_order)
 
     return errors, failure_booleans, costs
 
@@ -198,7 +198,7 @@ def analyse_error_estimation(method,
 # ## Running script on some test data
 
 
-def run_estimation_errors(method, num_phases, max_order, delta, confidence_alpha, confidence_beta, cutoff, num_repetitions):
+def run_estimation_errors(method, num_phases, max_order, eps, confidence_alpha, confidence_beta, cutoff, num_repetitions):
     est_errors_big = []
     failure_booleans_big = []
     costs_big = []
@@ -216,7 +216,7 @@ def run_estimation_errors(method, num_phases, max_order, delta, confidence_alpha
         estimation_errors, failure_booleans, costs = analyse_error_estimation(
             method,
             phases, amplitudes,
-            delta, confidence_alpha, confidence_beta,
+            eps, confidence_alpha, confidence_beta,
             max_order, cutoff)
         est_errors_big.append(estimation_errors)
         failure_booleans_big.append(failure_booleans)
