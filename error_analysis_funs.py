@@ -20,7 +20,7 @@ from qeep_estimators import (
     qeep_solve, qeep_sparse_solve, get_signal_requirements,
     qeep_approximate_single_eigenvalues, get_phase_values)
 from sparse_qpe import(
-    kappa_finder, match_phases, abs_phase_difference)
+    kappa_finder, match_phases, abs_phase_difference, _wn_diff)
 
 from tqdm import tqdm
 
@@ -89,8 +89,9 @@ def shift_value(phases):
         abs_phase_difference(phases[j], phases[(j+1) % len(phases)]) for j in range(len(phases))
     ]
     ix = np.argmax(phase_differences)
-    zeta = (phases[(ix+1) % len(phases)]+
-            phases[ix])/2
+    phase1 = phases[ix]
+    phase2 = phases[(ix+1) % len(phases)]
+    zeta = (phase1+phase2)/2+(1-_wn_diff(phase1, phase2))*np.pi/2
     #d_zeta is half of this largest distance
     d_zeta = np.max(phase_differences)/2
     shift_val = zeta+d_zeta/2
