@@ -1,9 +1,11 @@
 from error_analysis_funs import *
 
+methods = ['qeep', 'qeep-sparse', 'pencil']
 
 phases = [4.77144,    2.82579877, 4.88021636, 0.41070768, 3.06350016]
 num_phases = len(phases)
 
+deltas = [0.3]
 max_order = 10
 confidence_alpha = 0.8
 confidence_beta = 0.1
