@@ -102,7 +102,7 @@ def shift_value(phases, eps0):
         [abs_phase_difference(phase,zeta) for phase in phases]
     )/2 - 2*eps0
     shift_val = zeta+d_zeta/2
-    return shift_val
+    return shift_val, d_zeta
 
 # ## Function to perform multi-order estimation
 
@@ -134,8 +134,8 @@ def multiorder_estimation(method,
     estimates.append(list(phase_estimates))
     
     # Shift the unitary
-    shift_val = shift_value(phase_estimates, eps0)
-    phases = phases - shift_val
+    shift_val, d_zeta = shift_value(phase_estimates, eps0)
+    phases = (phases - shift_val) % (2*np.pi)
     phase_estimates = (phase_estimates - shift_val) % (2*np.pi)
     
     
@@ -146,10 +146,7 @@ def multiorder_estimation(method,
         print(r'Couldnt find good $k_1$, exiting')
         return  
     #The first multiplier has to be larger than 1/d_zeta
-    if multiplier < 2/np.max([
-        abs_phase_difference(np.sort(phases)[j], np.sort(phases)[(j+1) % len(phases)])
-        for j in range(len(phases))
-    ]):
+    if multiplier < 1/d_zeta:
         print(r'Got $k_1 < d_\zeta^{-1}$, exiting')
         return 
     kappas = [multiplier]
@@ -213,7 +210,6 @@ def multiorder_estimation(method,
             np.max(phase_estimates) > np.pi*(2*np.floor(multiplier)-1)/multiplier
         ):
             print('Got phase estimates outside of the allowed region, exiting')
-            print(phase_estimates)
             break
         
         # Add phase estimates errors and costs to data
