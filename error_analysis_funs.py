@@ -148,7 +148,7 @@ def multiorder_estimation(method,
     #The first multiplier has to be larger than 1/d_zeta
     if multiplier < 1/d_zeta:
         print(r'Got $k_1 < d_\zeta^{-1}$, exiting')
-        return 
+        return estimates, costs
     kappas = [multiplier]
     
     d=1
