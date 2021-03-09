@@ -81,7 +81,7 @@ def estimate_phases(method, signal, cutoff, num_points):
     
     raise ValueError(f'Wrong method: {method}')
 
-def shift_value(phases):
+def shift_value(phases, eps0):
     
     #zeta is the number between 2 consecutive phases that are furtherst away
     phases = np.sort(phases)
@@ -92,8 +92,15 @@ def shift_value(phases):
     phase1 = phases[ix]
     phase2 = phases[(ix+1) % len(phases)]
     zeta = (phase1+phase2)/2+(1-_wn_diff(phase1, phase2))*np.pi
-    #d_zeta is half of this largest distance
-    d_zeta = np.max(phase_differences)/2
+    if np.min(
+        [abs_phase_difference(phase,zeta+np.pi) for phase in phases]
+    ) > np.min(
+        [abs_phase_difference(phase,zeta) for phase in phases]
+    ):
+        zeta+=np.pi
+    d_zeta = np.min(
+        [abs_phase_difference(phase,zeta) for phase in phases]
+    )/2 - 2*eps0
     shift_val = zeta+d_zeta/2
     return shift_val
 
@@ -127,7 +134,7 @@ def multiorder_estimation(method,
     estimates.append(list(phase_estimates))
     
     # Shift the unitary
-    shift_val = shift_value(phase_estimates)
+    shift_val = shift_value(phase_estimates, eps0)
     phases = phases - shift_val
     phase_estimates = phase_estimates - shift_val
     
