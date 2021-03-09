@@ -144,7 +144,7 @@ def multiorder_estimation(method,
         multiplier = kappa_finder(phase_estimates, 2*eps0, multiplier, np.pi / (2 * eps0))
     except ValueError:
         print(r'Couldnt find good $k_1$, exiting')
-        return  
+        return  estimates, costs
     #The first multiplier has to be larger than 1/d_zeta
     if multiplier < 1/d_zeta:
         print(r'Got $k_1 < d_\zeta^{-1}$, exiting')
