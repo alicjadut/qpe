@@ -142,21 +142,22 @@ def multiorder_estimation(method,
     phases = (phases - shift_val) % (2*np.pi)
     phase_estimates = (phase_estimates - shift_val) % (2*np.pi)
     
+    d=1
     
     #Find the first multiplier
     try:
         multiplier = kappa_finder(phase_estimates, 2*eps0, multiplier, np.pi / (2 * eps0))
     except ValueError:
         print(r'Couldnt find good $k_1$, exiting')
-        return  estimates, costs
+        return estimates, costs, ('kappa', d)  
     #The first multiplier has to be larger than 1/d_zeta
     if multiplier < 1/d_zeta:
         print(r'Got $k_1 < d_\zeta^{-1}$, exiting')
-        return estimates, costs
+        return estimates, costs, ('k1', d)  
     kappas = [multiplier]
     
-    d=1
-
+    
+    
     while(multiplier < 2*eps/final_error and d<max_order+1):
 
         
@@ -168,7 +169,7 @@ def multiorder_estimation(method,
                 kappas.append(kappa_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
             except ValueError:
                 print('Couldnt find good kappa, exiting')
-                break          
+                return estimates, costs, ('kappa', d)            
             multiplier = np.prod(kappas)
 
         # Calculate the signal requirements at this order and the assoc. cost
@@ -196,7 +197,7 @@ def multiorder_estimation(method,
                 ) for phi in phase_estimates]) > 2*eps*(1+kappas[-1])
         ):
             print('Cannot match new estimates to old estimates, exiting')
-            break
+            return estimates, costs, ('match', d)  
 
         # Match phases --- generate new estimates of phases at each order
         phase_estimates, error_estimates = match_phases(
@@ -206,7 +207,7 @@ def multiorder_estimation(method,
         # If we have completely failed, do it gracefully
         if len(phase_estimates) == 0:
             print('No phases left, exiting')
-            break
+            return estimates, costs, ('empty', d)  
         #If the estimates are outside of the allowed region, exit
         if(
             np.min(phase_estimates) < np.pi/multiplier
@@ -214,7 +215,7 @@ def multiorder_estimation(method,
             np.max(phase_estimates) > np.pi*(2*np.floor(multiplier)-1)/multiplier
         ):
             print('Got phase estimates outside of the allowed region, exiting')
-            break
+            return estimates, costs, ('region', d)  
         
         # Add phase estimates errors and costs to data
         costs.append([cost for phase in phases])
@@ -222,7 +223,7 @@ def multiorder_estimation(method,
         
         d+=1
             
-    return estimates, costs    
+    return estimates, costs, ('success', d)    
 
 
 def get_estimation_errors(all_phase_estimates, phases):
