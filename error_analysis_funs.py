@@ -100,7 +100,7 @@ def shift_value(phases):
 
 def multiorder_estimation(method,
                              phases, amplitudes,
-                             eps, eps0, confidence_alpha, confidence_beta,
+                             eps, eps0, alpha, gamma,
                              final_error, cutoff):
     
     max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
@@ -112,7 +112,7 @@ def multiorder_estimation(method,
     multiplier = 1
     
     # Calculate the signal requirements at this order and the assoc. cost
-    confidence = confidence_alpha + confidence_beta
+    confidence = 1-np.exp(-alpha-gamma*max_order)
     num_points, signal_length, num_samples = get_signal_requirements(confidence, eps0)
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
@@ -139,15 +139,15 @@ def multiorder_estimation(method,
         return  
     kappas = [multiplier]
     
-    d=0
+    d=1
 
     while(multiplier < 2*eps/final_error and d<max_order+1):
 
-        confidence = confidence_alpha + confidence_beta * (max_order - d) / max_order
         
-        if(d>0):
+        if(d>1):
             # Calculate the new best multiplier from the previous phase data.
             # If this doesn't work, fail gracefully.
+            #(d = 1 is excluded, because we want to use eps0 for it)
             try:
                 kappas.append(kappa_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
             except ValueError:
@@ -156,6 +156,7 @@ def multiorder_estimation(method,
             multiplier = np.prod(kappas)
 
         # Calculate the signal requirements at this order and the assoc. cost
+        confidence = 1 - np.exp(-alpha-gamma*(max_order-d))
         num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
         cost += sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
         
@@ -211,12 +212,12 @@ def get_estimation_failures(all_phase_estimates, phases, eps, max_order):
 
 def analyse_error_estimation(method,
                              phases, amplitudes,
-                             eps, confidence_alpha, confidence_beta,
+                             eps, alpha, gamma,
                              max_order, cutoff):
     
     all_phase_estimates, costs = multiorder_estimation(method,
                              phases, amplitudes,
-                             eps, confidence_alpha, confidence_beta,
+                             eps, alpha, gamma,
                              max_order, cutoff)
     
     errors = get_estimation_errors(all_phase_estimates, phases)
@@ -228,7 +229,7 @@ def analyse_error_estimation(method,
 # ## Running script on some test data
 
 
-def run_estimation_errors(method, num_phases, max_order, eps, confidence_alpha, confidence_beta, cutoff, num_repetitions):
+def run_estimation_errors(method, num_phases, max_order, eps, alpha, gamma, cutoff, num_repetitions):
     est_errors_big = []
     failure_booleans_big = []
     costs_big = []
@@ -246,7 +247,7 @@ def run_estimation_errors(method, num_phases, max_order, eps, confidence_alpha, 
         estimation_errors, failure_booleans, costs = analyse_error_estimation(
             method,
             phases, amplitudes,
-            eps, confidence_alpha, confidence_beta,
+            eps, alpha, gamma,
             max_order, cutoff)
         est_errors_big.append(estimation_errors)
         failure_booleans_big.append(failure_booleans)
