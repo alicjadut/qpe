@@ -105,8 +105,6 @@ def multiorder_estimation(method,
     
     max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
     
-    kappas = []
-    
     estimates = []
     costs = []
 
@@ -132,19 +130,30 @@ def multiorder_estimation(method,
     phases = phases - shift_val
     phase_estimates = phase_estimates - shift_val
     
+    
+    #Find the first multiplier
+    try:
+        multiplier = kappa_finder(phase_estimates, 2*eps0, multiplier, np.pi / (2 * eps0))
+    except ValueError:
+        print(r'Couldnt find good $k_1$, exiting')
+        return  
+    kappas = [multiplier]
+    
     d=0
 
     while(multiplier < 2*eps/final_error and d<max_order+1):
 
         confidence = confidence_alpha + confidence_beta * (max_order - d) / max_order
-        # Calculate the new best multiplier from the previous phase data.
-        # If this doesn't work, fail gracefully.
-        try:
-            kappas.append(kappa_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
-        except ValueError:
-            print('Couldnt find good kappa, exiting')
-            break          
-        multiplier = np.prod(kappas)
+        
+        if(d>0):
+            # Calculate the new best multiplier from the previous phase data.
+            # If this doesn't work, fail gracefully.
+            try:
+                kappas.append(kappa_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
+            except ValueError:
+                print('Couldnt find good kappa, exiting')
+                break          
+            multiplier = np.prod(kappas)
 
         # Calculate the signal requirements at this order and the assoc. cost
         num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
@@ -168,6 +177,8 @@ def multiorder_estimation(method,
         # Add phase estimates errors and costs to data
         costs.append([cost for phase in phases])
         estimates.append(phase_estimates+shift_val)
+        
+        d+=1
             
     return estimates, costs    
 
