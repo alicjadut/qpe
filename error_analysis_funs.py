@@ -179,7 +179,8 @@ def multiorder_estimation(method,
                      for theta in aliased_phase_estimates]
                 ) for phi in phase_estimates]) > 2*eps*(1+kappas[-1])
         ):
-            return estimates, costs
+            print('Cannot match new estimates to old estimates, exiting')
+            break
 
         # Match phases --- generate new estimates of phases at each order
         phase_estimates, error_estimates = match_phases(
@@ -189,6 +190,14 @@ def multiorder_estimation(method,
         # If we have completely failed, do it gracefully
         if len(phase_estimates) == 0:
             print('No phases left, exiting')
+            break
+        #If the estimates are outside of the allowed region, exit
+        if(
+            np.min(phase_estimates) < np.pi/multiplier
+            or
+            np.max(phase_estimates) > np.pi*(2*np.floor(multiplier)-1)/multiplier
+        ):
+            print('Got phase estimates outside of the allowed region, exiting')
             break
         
         # Add phase estimates errors and costs to data
