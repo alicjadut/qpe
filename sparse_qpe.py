@@ -82,14 +82,14 @@ def abs_phase_difference(angle1, angle2):
     return diff
 
 #TO DO: after Appendix C is fixed this needs to be checked
-def beta_finder(phases, error, prev_multiplier, max_beta=None):
+def kappa_finder(phases, error, prev_multiplier, max_kappa=None):
     '''Finds the largest possible multiplier for unambiguous phase estimation
 
     Single-ancilla QPE requires that one estimates a signal at
-    different orders separated by multipliers (i.e. g(k*B_d) for
-    B_d = prod_d beta_d. Individual beta_d need to be chosen to ensure
+    different orders separated by multipliers (i.e. g(k*k_d) for
+    k_d = prod_d kappa_d. Individual kappa_d need to be chosen to ensure
     that the phase matching at subsequent orders is unambiguous. This
-    function determines the best choice of beta_d to make for these purposes.
+    function determines the best choice of kappa_d to make for these purposes.
 
     Args:
         phases [list of floats] -- The phases obtained at the previous
@@ -98,8 +98,8 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
             size of the confidence interval) (=2\epsilon)
         prev_multiplier [float] -- The previous multiplier used.
     '''
-    if max_beta is None:
-        max_beta = numpy.pi / error
+    if max_kappa is None:
+        max_kappa = numpy.pi / error
 
     phase_differences = [
         abs(phase1 - phase2) for j, phase1 in enumerate(phases)
@@ -107,15 +107,15 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
     ]
 
     if not phase_differences:
-        return max_beta
+        return max_kappa
 
     forbidden_region_alias_numbers = [
-        _alias_number_left_side(prev_multiplier, max_beta, error, phase_difference)
+        _alias_number_left_side(prev_multiplier, max_kappa, error, phase_difference)
         for phase_difference in phase_differences
     ]
 
     # We want to put these entires in a priority queue, but we want
-    # to select the greatest value of beta first, so we flip the sign.
+    # to select the greatest value of kappa first, so we flip the sign.
     forbidden_region_lhs = [
         (-_alias_region_left_side(alias_number, prev_multiplier, error,
                                   phase_difference), phase_difference,
@@ -150,25 +150,25 @@ def beta_finder(phases, error, prev_multiplier, max_beta=None):
             # If the lhs queue is empty, we are done
             if lhs_queue.empty():
                 if next_rhs is None:
-                    best_beta = -next_lhs[0]
+                    best_kappa = -next_lhs[0]
                 else:
-                    best_beta = -(next_lhs[0] + next_rhs[0]) / 2
-                return best_beta
+                    best_kappa = -(next_lhs[0] + next_rhs[0]) / 2
+                return best_kappa
 
             # Get the RHS of the next aliasing region
-            this_rhs_beta = _alias_region_right_side(
+            this_rhs_kappa = _alias_region_right_side(
                 next_lhs[2] - 1, prev_multiplier, error, next_lhs[1])
 
             # If the next region doesn't cause an aliasing
             # event (i.e. Eq.55 in ArXiv:XXXXX is not satisfied),
             # discount it.
             if _alias_region_unnecessary(next_lhs[1], prev_multiplier,
-                                         this_rhs_beta, error):
+                                         this_rhs_kappa, error):
                 next_lhs = lhs_queue.get()
                 continue
 
             # Make queue entry and insert
-            this_rhs = (-this_rhs_beta, next_lhs[1], next_lhs[2] - 1)
+            this_rhs = (-this_rhs_kappa, next_lhs[1], next_lhs[2] - 1)
             if next_rhs is None:
                 next_rhs = this_rhs
             elif this_rhs[0] < next_rhs[0]:
@@ -206,7 +206,7 @@ def _wn_diff(old_phase, new_phase):
     return 0
 
 
-def _alias_region_unnecessary(phase_difference, prev_multiplier, beta, error):
+def _alias_region_unnecessary(phase_difference, prev_multiplier, kappa, error):
     '''Checks whether a point in an alias region is unnecessary.
 
     Checks whether two phase estimates that could in principle both be
@@ -216,18 +216,18 @@ def _alias_region_unnecessary(phase_difference, prev_multiplier, beta, error):
     Arguments:
         phase_difference [float] -- difference between two phases
         prev_multiplier [float] -- the multiplier at the last point
-        beta [float] -- multiplier to be tested
+        kappa [float] -- multiplier to be tested
         error [float] -- error in estimation
     '''
     if phase_difference < (
-            numpy.pi - error * (1 + beta)) / (beta * prev_multiplier):
+            numpy.pi - error * (1 + kappa)) / (kappa * prev_multiplier):
         return True
     return False
 
 
 def _alias_number_left_side(prev_multiplier, this_multiplier, error,
                             phase_difference):
-    '''Finds the alias number for the first LHS before a given beta
+    '''Finds the alias number for the first LHS before a given kappa
 
     Args:
         prev_multiplier [float] -- Multiplier up to this point
@@ -243,7 +243,7 @@ def _alias_number_left_side(prev_multiplier, this_multiplier, error,
 
 def _alias_number_right_side(prev_multiplier, this_multiplier, error,
                              phase_difference):
-    '''Finds the alias number for the first RHS before a given beta
+    '''Finds the alias number for the first RHS before a given kappa
 
     Args:
         prev_multiplier [float] -- Multiplier up to this point
@@ -259,7 +259,7 @@ def _alias_number_right_side(prev_multiplier, this_multiplier, error,
 
 def _alias_region_left_side(alias_number, prev_multiplier, error,
                             phase_difference):
-    '''Counts the number of aliasing events that occur before the current beta value
+    '''Counts the number of aliasing events that occur before the current kappa value
 
     Args:
         alias_number [float] -- Number of times wrapped around the circle.
@@ -274,7 +274,7 @@ def _alias_region_left_side(alias_number, prev_multiplier, error,
 
 def _alias_region_right_side(alias_number, prev_multiplier, error,
                              phase_difference):
-    '''Counts the number of aliasing events that occur before the current beta value
+    '''Counts the number of aliasing events that occur before the current kappa value
 
     Args:
         alias_number [float] -- Number of times wrapped around the circle.

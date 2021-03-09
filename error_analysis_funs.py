@@ -20,7 +20,7 @@ from qeep_estimators import (
     qeep_solve, qeep_sparse_solve, get_signal_requirements,
     qeep_approximate_single_eigenvalues, get_phase_values)
 from sparse_qpe import(
-    beta_finder, match_phases, abs_phase_difference)
+    kappa_finder, match_phases, abs_phase_difference)
 
 from tqdm import tqdm
 
@@ -91,7 +91,7 @@ def multiorder_estimation(method,
     
     max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
     
-    betas = []
+    kappas = []
     
     estimates = []
     costs = []
@@ -121,11 +121,11 @@ def multiorder_estimation(method,
         # Calculate the new best multiplier from the previous phase data.
         # If this doesn't work, fail gracefully.
         try:
-            betas.append(beta_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
+            kappas.append(kappa_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
         except ValueError:
-            print('Couldnt find good beta, exiting')
+            print('Couldnt find good kappa, exiting')
             break          
-        multiplier = np.prod(betas)
+        multiplier = np.prod(kappas)
 
         # Calculate the signal requirements at this order and the assoc. cost
         num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
