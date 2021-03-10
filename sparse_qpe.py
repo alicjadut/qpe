@@ -16,54 +16,20 @@ import queue
 import numpy
 
 
-def match_phases(prev_phases, prev_errors, multiplier, new_phases, new_errors):
-    '''Matches a set of already-obtained signals accurate to within
-    1/multiplier to a new set of signals, under the assumption that
-    the multiplier found prevents aliasing.
-
-    [description]
-
-    Arguments:
-        prev_signals {[type]} -- [description]
-        multiplier {[type]} -- [description]
-        new_signals {[type]} -- [description]
+def match_phases(prev_phases, multiplier, new_phases):
     '''
-    winding_numbers = [(phase * multiplier) // (2 * numpy.pi)
-                       for phase in prev_phases]
-    residual_phases = [(phase * multiplier) % (2 * numpy.pi)
-                       for phase in prev_phases]
-    magnified_errors = [error * multiplier for error in prev_errors]
+    Simple minimal distance matching
+    '''
     matched_phases = []
-    matched_errors = []
-    for phase, error in zip(new_phases, new_errors):
-        possible_matchings = [
-            (old_phase, wn + _wn_diff(old_phase, phase), old_error)
-            for old_phase, old_error, wn in zip(
-                residual_phases, magnified_errors, winding_numbers)
-            if abs_phase_difference(old_phase, phase) < (error + old_error) / 2
-        ]
-        if len(possible_matchings) == 0:
-            warnings.warn('No matched phase found, could be spurious'
-                          ' detection at this order.')
-            continue
-        if len(set([match[1] for match in possible_matchings])) > 1:
-            warnings.warn('Alias detected, matching possibly ambiguous,'
-                          'taking closest signal. Did you choose the correct'
-                          ' multiplier?')
-            print('Printing possible matchings:')
-            print('New phase: {}, old_phases: {}'.format(
-                phase, possible_matchings))
-            print()
-            possible_matchings = sorted(
-                possible_matchings,
-                key=lambda x: abs_phase_difference(x[0], phase))
-
-        found_wn = possible_matchings[0][1]
-        full_phase = (found_wn * 2 * numpy.pi + phase) / multiplier
-        full_error = error / multiplier
-        matched_phases.append(full_phase)
-        matched_errors.append(full_error)
-    return matched_phases, matched_errors
+    for new_phase in new_phases:
+        phase_ix = numpy.argmin([abs_phase_difference(prev_phase*multiplier, new_phase) for prev_phase in prev_phases])
+        prev_phase = prev_phases[phase_ix]
+        winding_number = numpy.argmin([
+            abs_phase_difference(prev_phase, (new_phase+2*numpy.pi*n)/multiplier)
+            for n in numpy.arange(numpy.floor(multiplier)+1)])
+        matched_phases.append((new_phase+2*numpy.pi*winding_number)/multiplier)
+        
+    return matched_phases
 
 
 def abs_phase_difference(angle1, angle2):
