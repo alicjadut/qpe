@@ -227,80 +227,74 @@ def multiorder_estimation(method,
 
 
 def get_estimation_errors(all_phase_estimates, phases):
-    estimation_errors = []
-    for phase_estimates in all_phase_estimates:
-        estimation_errors.append([min([abs_phase_difference(phase_true, phase_est)
-                                   for phase_est in phase_estimates])
-                              for phase_true in phases])
+    phase_estimates = all_phase_estimates[-1]
+    estimation_errors = [min([abs_phase_difference(phase_true, phase_est)
+                              for phase_est in phase_estimates])
+                         for phase_true in phases]
     return(estimation_errors)
 
-def get_estimation_failures(all_phase_estimates, phases, eps, max_order):
-    # This is my current definition of 'failure' --- if we either see
-    # a spurious phase or don't pick up a given eigenvalue.
-    # Haven't looked into this too much though.
-        failure_booleans = []
-        for phase_estimates in all_phase_estimates:
-            spurious_phases = [phase_est for phase_est in phase_estimates
-                       if min([abs_phase_difference(phase_est, phase_true)
-                               for phase_true in phases]) > eps]
-            errors = get_estimation_errors([phase_estimates], phases)
-            if len(spurious_phases) == 0 and np.max(errors) < eps:
-                failure_booleans.append([False for phase in phases])
-            else:
-                failure_booleans.append([True for phase in phases])
-        if(len(failure_booleans) < max_order):
-            failure_booleans.append(True)
-        return(failure_booleans)
 
 def analyse_error_estimation(method,
                              phases, amplitudes,
-                             eps, alpha, gamma,
-                             max_order, cutoff):
+                             eps, eps0, alpha, gamma,
+                             final_error, cutoff):
     
-    all_phase_estimates, costs = multiorder_estimation(method,
+    all_phase_estimates, costs, error_flag = multiorder_estimation(method,
                              phases, amplitudes,
-                             eps, alpha, gamma,
-                             max_order, cutoff)
+                             eps, eps0, alpha, gamma,
+                             final_error, cutoff)
     
-    errors = get_estimation_errors(all_phase_estimates, phases)
-    failure_booleans = get_estimation_failures(all_phase_estimates, phases, eps, max_order)
+    est_errors = get_estimation_errors(all_phase_estimates, phases)
+    
+    fail = (error_flag[0]!='success')
 
-    return errors, failure_booleans, costs
+    return est_errors, costs[-1], fail
 
 
 # ## Running script on some test data
 
 
-def run_estimation_errors(method, num_phases, max_order, eps, alpha, gamma, cutoff, num_repetitions):
+def run_estimation_errors(
+    final_errors, method, num_phases, eps, eps0, alpha, gamma, cutoff, num_repetitions):
+    
     est_errors_big = []
-    failure_booleans_big = []
     costs_big = []
+    failures_big = []
 
     #rng = np.random.RandomState(42)
     
-    for rep in range(num_repetitions):
+    for final_error in final_errors:
+        print('Processing final error:', final_error)
+        est_errors = []
+        costs = []
+        failures = []
+        for rep in range(num_repetitions):
+
+            start = datetime.datetime.now()
+            print(rep, 'Started at:', start)
+
+            phases = rng.uniform(0, 2*np.pi, num_phases)
+            amplitudes = np.ones(num_phases)
+            amplitudes = amplitudes / np.sum(amplitudes)
+            estimation_errors, cost, failure = analyse_error_estimation(
+                method,
+                phases, amplitudes,
+                eps, eps0, alpha, gamma,
+                final_error, cutoff)
+            est_errors.append(estimation_errors)
+            costs.append(cost)
+            failures.append(failure)
+
+            end = datetime.datetime.now()
+            print('Executed in:', end-start)
         
-        start = datetime.datetime.now()
-        print(rep, 'Started at:', start)
-        
-        phases = rng.uniform(0, 2*np.pi, num_phases)
-        amplitudes = np.ones(num_phases)
-        amplitudes = amplitudes / np.sum(amplitudes)
-        estimation_errors, failure_booleans, costs = analyse_error_estimation(
-            method,
-            phases, amplitudes,
-            eps, alpha, gamma,
-            max_order, cutoff)
-        est_errors_big.append(estimation_errors)
-        failure_booleans_big.append(failure_booleans)
+        print(f'Proportion of simulations exited before last order:{np.sum(failures)*100/num_repetitions}%')
+    
+        est_errors_big.append(est_errors)
         costs_big.append(costs)
-        
-        end = datetime.datetime.now()
-        print('Executed in:', end-start)
-        
-    print(f'Proportion of simulations exited before last order:{np.sum([len(f)<max_order+1 for f in failure_booleans_big])*100/num_repetitions}%')
-        
-    return(costs_big, est_errors_big, failure_booleans_big)
+        failures.append(failures)
+    
+    return(costs_big, est_errors_big, failures_big)
 
 
 # ## Binning results and rejecting things far outside our confidence interval
@@ -318,13 +312,9 @@ def plot_estimation_errors(costs_big, est_errors_big):
     num_edges = len(edges)
     bin_xvals = [[] for x in midpoints]
     bin_yvals = [[] for x in midpoints]
-    num_rejections = 0
     for costs, est_errors in zip(costs_big, est_errors_big):
         for cvec, errorvec in zip(costs, est_errors):
             for c, error in zip(cvec, errorvec):
-                if error > 0.5:
-                    num_rejections += 1
-                    continue
                 if c > right_edge:
                     bin_xvals[-1].append(c)
                     bin_yvals[-1].append(error)
@@ -332,7 +322,6 @@ def plot_estimation_errors(costs_big, est_errors_big):
                     index = min([j for j in range(num_edges) if edges[j] > c])
                     bin_xvals[index].append(c)
                     bin_yvals[index].append(error)
-    print('Proportion of rejected samples: {}'.format(num_rejections / sum([len(b) for b in bin_xvals])))
     for n in range(num_edges, -1, -1):
         if len(bin_xvals[n]) == 0:
             del bin_xvals[n]
@@ -340,14 +329,13 @@ def plot_estimation_errors(costs_big, est_errors_big):
             
     binx_means = [np.mean(b) for b in bin_xvals]
     binx_err = [np.std(b) / np.sqrt(len(b)) * 2 for b in bin_xvals]
-    biny_means = [np.median(b) for b in bin_yvals]
-    biny_max = [np.percentile(b, 75) for b in bin_yvals]
-    biny_min  = [np.percentile(b, 25) for b in bin_yvals]
+    biny_means = [np.mean(b) for b in bin_yvals]
+    biny_err = [np.std(b) / np.sqrt(len(b)) * 2 for b in bin_yvals]
     
     plt.plot([x for b in bin_xvals for x in b], [y for b in bin_yvals for y in b], 'k.', markersize=1, label='Data points')
     #plt.plot(binx_means, biny_means, 'r+', markersize=20, markeredgewidth=3)
     plt.plot(binx_means, biny_means, 'ro', markersize=5, label = 'Binned means')
-    plt.errorbar(binx_means, biny_means, yerr=(biny_min, biny_max), xerr=binx_err, fmt='r.',
+    plt.errorbar(binx_means, biny_means, yerr=biny_err, xerr=binx_err, fmt='r.',
                  color='red', capsize=8, capthick=3, linewidth=3)
     plt.xscale('log')
     plt.yscale('log')
