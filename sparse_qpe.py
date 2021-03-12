@@ -98,16 +98,6 @@ def kappa_finder(phases, error, prev_multiplier, max_kappa=None):
         if alias_number > 0
     ]
     
-    next_forbidden_region_rhs = [(
-        -_alias_region_right_side(
-            alias_number - 1, prev_multiplier, error, phase_difference),
-        phase_difference,
-        alias_number)
-        for phase_difference, alias_number in zip(
-             phase_differences, forbidden_region_alias_numbers)
-        if alias_number > 0
-    ]
-    
     if not forbidden_region_lhs:
         return(max_kappa)
     
@@ -209,8 +199,8 @@ def _max_alias_number_no_self_aliasing(error, prev_multiplier, phase_difference)
 def _kappa_nonaliasing_condition(kappa, phase_difference, error, prev_multiplier):
     if (numpy.pi - 2 * error * (1 + kappa)) / (
             prev_multiplier * kappa) > phase_difference:
-        return False
-    return True
+        return True
+    return False
 
 
 def _next_alias_number(prev_multiplier, this_multiplier, error,
