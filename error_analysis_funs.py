@@ -146,7 +146,7 @@ def multiorder_estimation(method,
     
     #Find the first multiplier
     try:
-        multiplier = kappa_finder(phase_estimates, 2*eps0, multiplier, np.pi / (2 * eps0))
+        multiplier = kappa_finder(phase_estimates, eps0, multiplier, np.pi / (2 * eps0))
     except ValueError:
         print(r'Couldnt find good $k_1$, exiting')
         return estimates, costs, ('kappa', d)  
@@ -166,7 +166,7 @@ def multiorder_estimation(method,
             # If this doesn't work, fail gracefully.
             #(d = 1 is excluded, because we want to use eps0 for it)
             try:
-                kappas.append(kappa_finder(phase_estimates, 2*eps, multiplier, np.pi / (2 * eps)))
+                kappas.append(kappa_finder(phase_estimates, eps, multiplier, np.pi / (2 * eps)))
             except ValueError:
                 print('Couldnt find good kappa, exiting')
                 return estimates, costs, ('kappa', d)            
