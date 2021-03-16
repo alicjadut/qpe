@@ -246,6 +246,7 @@ def analyse_error_estimation(method,
     est_errors = get_estimation_errors(all_phase_estimates, phases)
     
     fail = (error_flag[0]!='success')
+    print(error_flag)
 
     return est_errors, costs[-1], fail
 
@@ -271,6 +272,7 @@ def run_estimation_errors(
             print(rep, 'Started at:', start)
 
             phases = rng.uniform(0, 2*np.pi, num_phases)
+            print(phases)
             amplitudes = np.ones(num_phases)
             amplitudes = amplitudes / np.sum(amplitudes)
             estimation_errors, cost, failure = analyse_error_estimation(
