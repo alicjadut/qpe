@@ -25,19 +25,17 @@ from sparse_qpe import(
 
 from tqdm import tqdm
 
-rng = np.random.RandomState(42)
-
 
 # # Definitions
 
 # ## Functions to produce a phase function with the appropriate noise
 
 
-def add_noise(prob, num_samples):
+def add_noise(prob, num_samples, rng = np.random.RandomState(42)):
     res = rng.binomial(num_samples, prob) / num_samples
     return res
 
-def get_gk(signal_length, phases, amplitudes, num_samples, multiplier):
+def get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng = np.random.RandomState(42)):
     gk_clean = np.array([np.sum(
         np.array(amplitudes) * np.exp(1j * np.array(phases) * k * multiplier))
                      for k in range(signal_length+1)])
@@ -46,8 +44,8 @@ def get_gk(signal_length, phases, amplitudes, num_samples, multiplier):
     else:
         pk_real_clean = 0.5 - 0.5 * np.real(gk_clean)
         pk_imag_clean = 0.5 - 0.5 * np.imag(gk_clean)
-        pk_real_noisy = add_noise(pk_real_clean, num_samples)
-        pk_imag_noisy = add_noise(pk_imag_clean, num_samples)
+        pk_real_noisy = add_noise(pk_real_clean, num_samples, rng)
+        pk_imag_noisy = add_noise(pk_imag_clean, num_samples, rng)
 
         gk_noisy = (1 - 2 * pk_real_noisy) + 1j *(1 - 2 * pk_imag_noisy)
     return gk_noisy
@@ -113,7 +111,7 @@ def shift_value(phases, eps0):
 def multiorder_estimation(method,
                              phases, amplitudes,
                              eps, eps0, alpha, gamma,
-                             final_error, cutoff):
+                             final_error, cutoff, rng = np.random.RandomState(42)):
     
     max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
     
@@ -129,7 +127,7 @@ def multiorder_estimation(method,
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
     # Get the new signal and estimate aliased phases from this.
-    gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier)
+    gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng)
     phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
     error_estimates = [eps for phase in phase_estimates]
     
@@ -178,7 +176,7 @@ def multiorder_estimation(method,
         cost += sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
         
         # Get the new signal and estimate aliased phases from this.
-        gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier)
+        gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng)
         aliased_phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
         
         #If the new estimates are not close enough to the old estimates, exit
@@ -237,12 +235,13 @@ def get_estimation_errors(all_phase_estimates, phases):
 def analyse_error_estimation(method,
                              phases, amplitudes,
                              eps, eps0, alpha, gamma,
-                             final_error, cutoff):
+                             final_error, cutoff,
+                             rng = np.random.RandomState(42)):
     
     all_phase_estimates, costs, error_flag = multiorder_estimation(method,
                              phases, amplitudes,
                              eps, eps0, alpha, gamma,
-                             final_error, cutoff)
+                             final_error, cutoff, rng)
     
     est_errors = get_estimation_errors(all_phase_estimates, phases)
     
@@ -255,13 +254,11 @@ def analyse_error_estimation(method,
 
 
 def run_estimation_errors(
-    final_errors, method, num_phases, eps, eps0, alpha, gamma, cutoff, num_repetitions):
+    final_errors, method, num_phases, eps, eps0, alpha, gamma, cutoff, num_repetitions, rng = np.random.RandomState(42)):
     
     est_errors_big = []
     costs_big = []
     failures_big = []
-
-    #rng = np.random.RandomState(42)
     
     for final_error in final_errors:
         print('Processing final error:', final_error)
@@ -280,7 +277,7 @@ def run_estimation_errors(
                 method,
                 phases, amplitudes,
                 eps, eps0, alpha, gamma,
-                final_error, cutoff)
+                final_error, cutoff, rng)
             est_errors.append(estimation_errors)
             costs.append(cost)
             failures.append(failure)
