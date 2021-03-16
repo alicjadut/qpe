@@ -292,7 +292,7 @@ def run_estimation_errors(
     
         est_errors_big.append(est_errors)
         costs_big.append(costs)
-        failures.append(failures)
+        failures_big.append(failures)
     
     return(costs_big, est_errors_big, failures_big)
 
