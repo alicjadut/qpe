@@ -331,6 +331,11 @@ def plot_estimation_errors(costs_big, est_errors_big, color = 'black'):
     biny_means = [np.mean(b) for b in bin_yvals]
     biny_err = [np.std(b) / np.sqrt(len(b)) * 2 for b in bin_yvals]
     
+    factor = np.exp(np.polyfit(np.zeros(len(binx_means)), np.log(binx_means)+np.log(biny_means), 0))
+    print('Factor:',factor)
+    xvec_temp = np.linspace(min(binx_means)/1e1, max(binx_means)*1e1)
+    plt.plot(xvec_temp, factor/xvec_temp, '--', color = 'k')
+    
     plt.plot([x for b in bin_xvals for x in b], [y for b in bin_yvals for y in b],
              '.', markersize = 1, color = color)
     #plt.plot(binx_means, biny_means, 'r+', markersize=20, markeredgewidth=3)
