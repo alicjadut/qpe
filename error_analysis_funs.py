@@ -83,7 +83,7 @@ def estimate_phases(method, signal, cutoff, num_points):
     
     raise ValueError(f'Wrong method: {method}')
 
-def shift_value(phases, eps0):
+def shift_value(phases, eps):
     
     #zeta is the number between 2 consecutive phases that are furtherst away
     phases = np.sort(phases)
@@ -102,7 +102,7 @@ def shift_value(phases, eps0):
         zeta+=np.pi
     d_zeta = np.min(
         [abs_phase_difference(phase,zeta) for phase in phases]
-    )/2 - 2*eps0
+    )/2 - 2*eps
     shift_val = zeta+d_zeta/2
     return shift_val, d_zeta
 
@@ -110,7 +110,7 @@ def shift_value(phases, eps0):
 
 def multiorder_estimation(method,
                              phases, amplitudes,
-                             eps, eps0, alpha, gamma,
+                             eps, alpha, gamma,
                              final_error, cutoff, rng = np.random.RandomState(42)):
     
     max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
@@ -123,7 +123,7 @@ def multiorder_estimation(method,
     
     # Calculate the signal requirements at this order and the assoc. cost
     confidence = 1-np.exp(-alpha-gamma*max_order)
-    num_points, signal_length, num_samples = get_signal_requirements(confidence, eps0)
+    num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
     # Get the new signal and estimate aliased phases from this.
@@ -136,7 +136,7 @@ def multiorder_estimation(method,
     estimates.append(list(phase_estimates))
     
     # Shift the unitary
-    shift_val, d_zeta = shift_value(phase_estimates, eps0)
+    shift_val, d_zeta = shift_value(phase_estimates, eps)
     phases = (phases - shift_val) % (2*np.pi)
     phase_estimates = (phase_estimates - shift_val) % (2*np.pi)
     
@@ -144,7 +144,7 @@ def multiorder_estimation(method,
     
     #Find the first multiplier
     try:
-        multiplier = kappa_finder(phase_estimates, eps0, multiplier, np.pi / (2 * eps0))
+        multiplier = kappa_finder(phase_estimates, eps, multiplier, np.pi / (2 * eps))
     except ValueError:
         print(r'Couldnt find good $k_1$, exiting')
         return estimates, costs, ('kappa', d)  
@@ -162,7 +162,7 @@ def multiorder_estimation(method,
         if(d>1):
             # Calculate the new best multiplier from the previous phase data.
             # If this doesn't work, fail gracefully.
-            #(d = 1 is excluded, because we want to use eps0 for it)
+            #(d = 1 is excluded, because we have extra assumptions for it)
             try:
                 kappas.append(kappa_finder(phase_estimates, eps, multiplier, np.pi / (2 * eps)))
             except ValueError:
@@ -234,13 +234,13 @@ def get_estimation_errors(all_phase_estimates, phases):
 
 def analyse_error_estimation(method,
                              phases, amplitudes,
-                             eps, eps0, alpha, gamma,
+                             eps, alpha, gamma,
                              final_error, cutoff,
                              rng = np.random.RandomState(42)):
     
     all_phase_estimates, costs, error_flag = multiorder_estimation(method,
                              phases, amplitudes,
-                             eps, eps0, alpha, gamma,
+                             eps, alpha, gamma,
                              final_error, cutoff, rng)
     
     est_errors = get_estimation_errors(all_phase_estimates, phases)
@@ -255,7 +255,7 @@ def analyse_error_estimation(method,
 
 
 def run_estimation_errors(
-    final_errors, method, num_phases, eps, eps0, alpha, gamma, cutoff, num_repetitions, rng = np.random.RandomState(42)):
+    final_errors, method, num_phases, eps, alpha, gamma, cutoff, num_repetitions, rng = np.random.RandomState(42)):
     
     est_errors_big = []
     costs_big = []
@@ -278,7 +278,7 @@ def run_estimation_errors(
             estimation_errors, cost, failure = analyse_error_estimation(
                 method,
                 phases, amplitudes,
-                eps, eps0, alpha, gamma,
+                eps, alpha, gamma,
                 final_error, cutoff, rng)
             est_errors.append(estimation_errors)
             costs.append(cost)
