@@ -299,7 +299,7 @@ def run_estimation_errors(
 # ## Binning results and rejecting things far outside our confidence interval
 
 
-def plot_estimation_errors(costs_big, est_errors_big):
+def plot_estimation_errors(costs_big, est_errors_big, color = 'black'):
     midpoints = np.sort(np.kron(10**np.arange(
         start = np.floor(np.log10(np.min([np.min(c) for c in costs_big]))),
         stop = 1+np.ceil(np.log10(np.max([np.max(c) for c in costs_big])))
@@ -331,17 +331,17 @@ def plot_estimation_errors(costs_big, est_errors_big):
     biny_means = [np.mean(b) for b in bin_yvals]
     biny_err = [np.std(b) / np.sqrt(len(b)) * 2 for b in bin_yvals]
     
-    plt.plot([x for b in bin_xvals for x in b], [y for b in bin_yvals for y in b], 'k.', markersize=1, label='Data points')
+    plt.plot([x for b in bin_xvals for x in b], [y for b in bin_yvals for y in b],
+             '.', markersize = 1, color = color)
     #plt.plot(binx_means, biny_means, 'r+', markersize=20, markeredgewidth=3)
-    plt.plot(binx_means, biny_means, 'ro', markersize=5, label = 'Binned means')
-    plt.errorbar(binx_means, biny_means, yerr=biny_err, xerr=binx_err, fmt='r.',
-                 color='red', capsize=8, capthick=3, linewidth=3)
+    plt.plot(binx_means, biny_means, 'o', markersize=5, color = color)
+    plt.errorbar(binx_means, biny_means, yerr=biny_err, xerr=binx_err, fmt='.',
+                 color=color, capsize=8, capthick=3, linewidth=3)
     plt.xscale('log')
     plt.yscale('log')
     #plt.plot(midpoints, 5000/midpoints, 'b--', label=r'$y\sim 1/x$')
-    plt.legend()#fontsize=22)
-    plt.xlabel('Total number of unitary applications')
-    plt.ylabel('Estimator error')
+    plt.xlabel(r'Total quantum cost $T$')
+    plt.ylabel(r'Estimator error $\delta$')
     
 def plot_phase_estimates(true_phases, phase_estimates, max_order):
 
