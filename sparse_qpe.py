@@ -70,11 +70,12 @@ def kappa_finder(phases, error, prev_multiplier, max_kappa=None):
     '''
     #CHANGED
     if max_kappa is None:
-        max_kappa = numpy.pi / (4 * error)
+        max_kappa = (numpy.pi - 2 * error) / (6 * error)
         
     #CHANGED
     phase_differences = [
-        abs(phase1 - phase2) for j, phase1 in enumerate(phases)
+        abs_phase_difference(phase1, phase2)
+        for j, phase1 in enumerate(phases)
         for phase2 in phases[j+1:]
     ]
     if not phase_differences:
