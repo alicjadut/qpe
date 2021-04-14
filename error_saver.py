@@ -12,8 +12,8 @@ num_repetitions = int(sys.argv[5])
 rep = int(sys.argv[6])
 data_dir = sys.argv[7]
 
-alpha = 10
-gamma = 1.5
+alpha = 2
+gamma = 2.4
 cutoff = 1/3/num_phases
 
 from error_analysis_funs import *

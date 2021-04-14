@@ -103,7 +103,7 @@ def shift_value(phases, eps):
     d_zeta = np.min(
         [abs_phase_difference(phase,zeta) for phase in phases]
     )
-    shift_val = zeta+d_zeta/2-8eps
+    shift_val = zeta+d_zeta/2-8*eps
     return shift_val
 
 # ## Function to perform multi-order estimation
@@ -113,7 +113,6 @@ def multiorder_estimation(method,
                              eps, alpha, gamma,
                              final_error, cutoff, rng = np.random.RandomState(42)):
     
-    max_order = np.ceil(np.log2(2*eps/final_error)).astype('int')
     
     estimates = []
     costs = []
@@ -122,7 +121,8 @@ def multiorder_estimation(method,
     multiplier = 1
     
     # Calculate the signal requirements at this order and the assoc. cost
-    confidence = 1-np.exp(-alpha-gamma*max_order)
+    confidence = 1-np.exp(-alpha)*(multiplier*final_error/np.pi)**gamma
+    print(confidence, alpha, multiplier, final_error,gamma)
     num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
@@ -157,6 +157,7 @@ def multiorder_estimation(method,
     
     
     while(multiplier < 2*eps/final_error and d<max_order+1):
+        print(multiplier)
 
         
         if(d>1):
@@ -171,7 +172,7 @@ def multiorder_estimation(method,
             multiplier = np.prod(kappas)
 
         # Calculate the signal requirements at this order and the assoc. cost
-        confidence = 1 - np.exp(-alpha-gamma*(max_order-d))
+        confidence = 1-np.exp(-alpha)*(multiplier*final_error/np.pi)**gamma
         num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
         cost += sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
         
