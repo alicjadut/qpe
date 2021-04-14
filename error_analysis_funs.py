@@ -156,7 +156,7 @@ def multiorder_estimation(method,
     
     
     
-    while(multiplier < 2*eps/final_error and d<max_order+1):
+    while(multiplier < 2*eps/final_error):
         print(multiplier)
 
         

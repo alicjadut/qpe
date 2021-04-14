@@ -1,6 +1,6 @@
 import os
 import sys
-if len(sys.argv) < 9:
+if len(sys.argv) < 8:
     raise(Exception(f"usage: python {sys.argv[0]} "
                     "<method> <n_phases> <eps> <final_error> <n_sim> <rep> <data_dir>"))
 
