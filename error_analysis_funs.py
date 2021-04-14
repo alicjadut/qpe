@@ -122,7 +122,6 @@ def multiorder_estimation(method,
     
     # Calculate the signal requirements at this order and the assoc. cost
     confidence = 1-np.exp(-alpha)*(multiplier*final_error/np.pi)**gamma
-    print(confidence, alpha, multiplier, final_error,gamma)
     num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
@@ -157,7 +156,6 @@ def multiorder_estimation(method,
     
     
     while(multiplier < 2*eps/final_error):
-        print(multiplier)
 
         
         if(d>1):
