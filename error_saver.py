@@ -24,6 +24,7 @@ costs, est_errors, failure_booleans = run_estimation_errors(
     [final_error], method, num_phases, eps, alpha, gamma, cutoff, num_repetitions, rng)
 
 
-np.save(data_dir+f'/errors_costs_failures_{method}_phases_{num_phases}_eps_{eps}_final-error_{final_error}_rep_{rep}',
+np.save(data_dir+
+        f'/errors_costs_failures_{method}_phases_{num_phases}_eps_{eps}_final-error_{final_error}_alpha_{alpha}_gamma_{gamma}_rep_{rep}',
         (est_errors, costs, failure_booleans),
         allow_pickle = True)
