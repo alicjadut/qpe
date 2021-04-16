@@ -1,19 +1,19 @@
 import os
 import sys
-if len(sys.argv) < 8:
+if len(sys.argv) < 10:
     raise(Exception(f"usage: python {sys.argv[0]} "
-                    "<method> <n_phases> <eps> <final_error> <n_sim> <rep> <data_dir>"))
+                    "<method> <n_phases> <eps> <final_error> <alpha> <gamma> <n_sim> <rep> <data_dir>"))
 
 method = sys.argv[1]
 num_phases = int(sys.argv[2])
 eps = float(sys.argv[3])
 final_error = float(sys.argv[4])
-num_repetitions = int(sys.argv[5])
-rep = int(sys.argv[6])
-data_dir = sys.argv[7]
+eps = float(sys.argv[5])
+eps = float(sys.argv[6])
+num_repetitions = int(sys.argv[7])
+rep = int(sys.argv[8])
+data_dir = sys.argv[9]
 
-alpha = 2
-gamma = 2.4
 cutoff = 1/3/num_phases
 
 from error_analysis_funs import *
