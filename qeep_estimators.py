@@ -46,11 +46,16 @@ def get_signal_requirements(confidence, error):
     num_points = int(numpy.ceil((2 * numpy.pi) / error))
     # Prefactors from ArXiv:1907.11748
     num_points_sampled = int(
-        numpy.ceil(0.1 * numpy.log(num_points)**2 * num_points))
-    num_samples = int(
-        numpy.ceil(
-            numpy.abs(
-                numpy.log(1 - confidence**(1 / num_points_sampled)) / error**4)))
+        numpy.ceil(0.1 * numpy.log(num_points)**2 * num_points))   
+    try:
+        num_samples = int(
+            numpy.ceil(
+                numpy.abs(
+                    numpy.log(1 - confidence**(1 / num_points_sampled)) / error**4)))
+    except OverflowError:
+        num_samples = int(numpy.ceil(numpy.abs(numpy.log(1-confidence)
+                                               - numpy.log(num_points_sampled))
+                                     / error**4))
 
     return num_points, num_points_sampled, num_samples
 
