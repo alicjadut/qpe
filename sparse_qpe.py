@@ -72,9 +72,15 @@ def kappa_finder(phases, error, prev_multiplier, max_kappa=None):
     if max_kappa is None:
         max_kappa = (numpy.pi - 2 * error) / (6 * error)
         
+    phase_pairs = [
+        (phase1, phase2)
+        for j, phase1 in enumerate(phases)
+        for phase2 in phases[j+1:]
+    ]
+        
     #CHANGED
     phase_differences = [
-        abs_phase_difference(phase1, phase2)
+        abs(phase1 - phase2)
         for j, phase1 in enumerate(phases)
         for phase2 in phases[j+1:]
     ]
@@ -83,8 +89,8 @@ def kappa_finder(phases, error, prev_multiplier, max_kappa=None):
  
     forbidden_region_alias_numbers = [
         _max_alias_number_no_self_aliasing(
-            error, prev_multiplier, phase_difference)
-        for phase_difference in phase_differences
+            error, prev_multiplier, phase1, phase2)
+        for phase1, phase2 in phase_pairs
     ]
 
     # We want to put these entires in a priority queue, but we want
@@ -93,13 +99,31 @@ def kappa_finder(phases, error, prev_multiplier, max_kappa=None):
         -_alias_region_left_side(
             alias_number, prev_multiplier, error, phase_difference),
         phase_difference,
-        alias_number)
-        for phase_difference, alias_number in zip(
-             phase_differences, forbidden_region_alias_numbers)
+        alias_number,
+        phase_pair)
+        for phase_difference, alias_number, phase_pair in zip(
+             phase_differences, forbidden_region_alias_numbers,
+             phase_pairs)
         if alias_number > 0
     ]
-    print(forbidden_region_lhs)
     
+    forbidden_region_rhsm1 = [(
+        -_alias_region_left_side(
+            alias_number - 1, prev_multiplier, error, phase_difference),
+        phase_difference,
+        alias_number,
+        phase_pair)
+        for phase_difference, alias_number, phase_pair in zip(
+             phase_differences, forbidden_region_alias_numbers,
+             phase_pairs)
+        if alias_number > 0
+    ]
+    
+    # Some checking - this should never fail
+    for lhs, rhs in zip(forbidden_region_lhs, forbidden_region_rhsm1):
+        assert lhs[0] < rhs[0]
+        check_kappa_single_pair(lhs[-1][0], lhs[-1][1], -lhs[0], error, prev_multiplier)
+
     if not forbidden_region_lhs:
         return(max_kappa)
     
@@ -173,11 +197,15 @@ def kappa_finder(phases, error, prev_multiplier, max_kappa=None):
 def check_kappa_works(phases, kappa, error, prev_multiplier):
     for phase1 in phases:
         for phase2 in phases:
-            phasediff = abs_phase_difference(phase1, phase2)
-            if phasediff >= (numpy.pi - 2 * error * (1 + kappa)) / (prev_multiplier * kappa):
-                '''This should never fail - if it does, the kappa finder has a bug.'''
-                assert abs_phase_difference(
-                    prev_multiplier * kappa * phasediff, 0) >= 4 * error * (1 + kappa) - ERR_TOL
+            check_kappa_single_pair(phase1, phase2, kappa, error, prev_multiplier)
+                
+def check_kappa_single_pair(phase1, phase2, kappa, error, prev_multiplier):
+    phasediff = abs_phase_difference(phase1, phase2)
+    if phasediff >= (numpy.pi - 2 * error * (1 + kappa)) / (prev_multiplier * kappa):
+        '''This should never fail - if it does, the kappa finder has a bug.'''
+        assert abs_phase_difference(
+            prev_multiplier * kappa * phase1,
+            prev_multiplier * kappa * phase2) >= 4 * error * (1 + kappa) - ERR_TOL
 
 
 def _wn_diff(old_phase, new_phase):
@@ -187,16 +215,16 @@ def _wn_diff(old_phase, new_phase):
         return -1
     return 0
 
-def _max_alias_number_no_self_aliasing(error, prev_multiplier, phase_difference):
+def _max_alias_number_no_self_aliasing(error, prev_multiplier, phase1, phase2):
     '''Finds the largest n where the left-hand side of R_{j,l}^{(n)} is greater
     than the right-hand side of R_{j,l}^{(n-1)}.
     '''
+    phase_difference = abs(phase1 - phase2)
     maxn = int(numpy.floor(1 / (8 * numpy.pi * error) * (
         numpy.pi * prev_multiplier * phase_difference
         + 4 * numpy.pi * error
         - 4 * error * prev_multiplier * phase_difference
     )))
-    print(maxn)
     return maxn
 
 def _kappa_nonaliasing_condition(kappa, phase_difference, error, prev_multiplier):

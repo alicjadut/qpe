@@ -129,6 +129,9 @@ def multiorder_estimation(method,
     gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng)
     phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
     error_estimates = [eps for phase in phase_estimates]
+    #print('phase estimates, order 0')
+    #print(phase_estimates)
+    #print('expected error: {}'.format(eps))
     
     # Add phase estimates and costs to data
     costs.append([cost for phase in phases])
@@ -140,7 +143,7 @@ def multiorder_estimation(method,
     phase_estimates = (phase_estimates - shift_val) % (2*np.pi)
     
     d=1
-    
+    #print('entering kappa finder')
     #Find the first multiplier
     try:
         multiplier = kappa_finder(phase_estimates, eps, multiplier)
@@ -157,11 +160,14 @@ def multiorder_estimation(method,
     
     while(multiplier < 2*eps/final_error):
 
-        
+        #print('trying at order d: ', d)
         if(d>1):
             # Calculate the new best multiplier from the previous phase data.
             # If this doesn't work, fail gracefully.
             #(d = 1 is excluded, because we have extra assumptions for it)
+            #print('entering kappa finder')
+            #print('input data:')
+            #print(phase_estimates, eps, multiplier)
             try:
                 kappas.append(kappa_finder(phase_estimates, eps, multiplier))
             except ValueError:
@@ -177,6 +183,14 @@ def multiorder_estimation(method,
         # Get the new signal and estimate aliased phases from this.
         gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng)
         aliased_phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
+        #print('aliased phase estimates at order {}'.format(d))
+        #print(aliased_phase_estimates)
+        #print('expected phase estimates at this order')
+        #print((phases+shift_val) % (2*np.pi))
+        #print((phases * multiplier) % (2 * np.pi))
+        #print('expected phase estimates at this order from prev order')
+        #print((phase_estimates+shift_val) % (2*np.pi))
+        #print((np.array(phase_estimates) * multiplier) % (2 * np.pi))
         
         #If the new estimates are not close enough to the old estimates, exit
         if(
@@ -200,6 +214,9 @@ def multiorder_estimation(method,
             phase_estimates,
             multiplier,
             aliased_phase_estimates)
+        #print('phase estimates at order {}'.format(d))
+        #print((phase_estimates+shift_val) % (2*np.pi))
+        #print('expected error: {}'.format(eps/multiplier))
         
         # If we have completely failed, do it gracefully
         if len(phase_estimates) == 0:
