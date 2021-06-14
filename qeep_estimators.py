@@ -46,11 +46,16 @@ def get_signal_requirements(confidence, error):
     num_points = int(numpy.ceil((2 * numpy.pi) / error))
     # Prefactors from ArXiv:1907.11748
     num_points_sampled = int(
-        numpy.ceil(0.1 * numpy.log(num_points)**2 * num_points))
-    num_samples = int(
-        numpy.ceil(
-            numpy.abs(
-                numpy.log(1 - confidence**(1 / num_points_sampled)) / error**4)))
+        numpy.ceil(0.1 * numpy.log(num_points)**2 * num_points))   
+    try:
+        num_samples = int(
+            numpy.ceil(
+                numpy.abs(
+                    numpy.log(1 - confidence**(1 / num_points_sampled)) / error**4)))
+    except OverflowError:
+        num_samples = int(numpy.ceil(numpy.abs(numpy.log(1-confidence)
+                                               - numpy.log(num_points_sampled))
+                                     / error**4))
 
     return num_points, num_points_sampled, num_samples
 
@@ -88,6 +93,28 @@ def qeep_sparse_solve(spectral_function, cutoff):
     ]
     return phase_estimates
 
+def qeep_conservative_solve(spectral_function, cutoff):
+    '''Solver for the sparse quantum eigenvalue estimation problem as described by Alg 3.4
+
+    Arguments:
+        spectral_function [numpy array] -- the spectral function obtained from
+            qeep_solve
+        cutoff [float] -- minimum amplitude to count as a signal
+            in the spectral function
+    '''
+    indices = [
+        j for j,p in enumerate(spectral_function) if abs(p) > cutoff/3
+    ]
+    start = numpy.argmax(spectral_function < cutoff/3)
+    num_points = len(spectral_function)
+    for j in range(num_points):
+        ix = (start+j) % num_points
+        if ix in indices and (ix-1) % num_points in indices:
+            indices.remove(ix)
+            
+    phase_values = get_phase_values(spectral_function) 
+    phase_estimates = phase_values[indices]
+    return phase_estimates
 
 def qeep_approximate_single_eigenvalues(spectral_function, cutoff):
     '''Calculates approximate QEEP eigenvalues, assuming separation

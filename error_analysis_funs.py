@@ -18,13 +18,12 @@ warnings.simplefilter("always")
 
 from qeep_estimators import (
     qeep_solve, qeep_sparse_solve, get_signal_requirements,
-    qeep_approximate_single_eigenvalues, get_phase_values)
+    qeep_approximate_single_eigenvalues, get_phase_values,
+    qeep_conservative_solve)
 from sparse_qpe import(
-    beta_finder, match_phases, abs_phase_difference)
+    kappa_finder, match_phases, abs_phase_difference, _wn_diff)
 
 from tqdm import tqdm
-
-rng = np.random.RandomState(42)
 
 
 # # Definitions
@@ -32,11 +31,11 @@ rng = np.random.RandomState(42)
 # ## Functions to produce a phase function with the appropriate noise
 
 
-def add_noise(prob, num_samples):
+def add_noise(prob, num_samples, rng = np.random.RandomState(42)):
     res = rng.binomial(num_samples, prob) / num_samples
     return res
 
-def get_gk(signal_length, phases, amplitudes, num_samples, multiplier):
+def get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng = np.random.RandomState(42)):
     gk_clean = np.array([np.sum(
         np.array(amplitudes) * np.exp(1j * np.array(phases) * k * multiplier))
                      for k in range(signal_length+1)])
@@ -45,8 +44,8 @@ def get_gk(signal_length, phases, amplitudes, num_samples, multiplier):
     else:
         pk_real_clean = 0.5 - 0.5 * np.real(gk_clean)
         pk_imag_clean = 0.5 - 0.5 * np.imag(gk_clean)
-        pk_real_noisy = add_noise(pk_real_clean, num_samples)
-        pk_imag_noisy = add_noise(pk_imag_clean, num_samples)
+        pk_real_noisy = add_noise(pk_real_clean, num_samples, rng)
+        pk_imag_noisy = add_noise(pk_imag_clean, num_samples, rng)
 
         gk_noisy = (1 - 2 * pk_real_noisy) + 1j *(1 - 2 * pk_imag_noisy)
     return gk_noisy
@@ -63,6 +62,9 @@ def get_gk(signal_length, phases, amplitudes, num_samples, multiplier):
 
 def estimate_phases(method, signal, cutoff, num_points):
    
+    if(method == 'qeep-cons'):
+        spectral_function = qeep_solve(signal, num_points)
+        return qeep_conservative_solve(spectral_function, cutoff)
     
     if(method == 'qeep'):
         spectral_function = qeep_solve(signal, num_points)
@@ -81,15 +83,36 @@ def estimate_phases(method, signal, cutoff, num_points):
     
     raise ValueError(f'Wrong method: {method}')
 
+def shift_value(phases, eps):
+    
+    #zeta is the number between 2 consecutive phases that are furtherst away
+    phases = np.sort(phases)
+    phase_differences = [
+        abs_phase_difference(phases[j], phases[(j+1) % len(phases)]) for j in range(len(phases))
+    ]
+    ix = np.argmax(phase_differences)
+    phase1 = phases[ix]
+    phase2 = phases[(ix+1) % len(phases)]
+    zeta = (phase1+phase2)/2+(1-_wn_diff(phase1, phase2))*np.pi
+    if np.min(
+        [abs_phase_difference(phase,zeta+np.pi) for phase in phases]
+    ) > np.min(
+        [abs_phase_difference(phase,zeta) for phase in phases]
+    ):
+        zeta+=np.pi
+    d_zeta = np.min(
+        [abs_phase_difference(phase,zeta) for phase in phases]
+    )
+    shift_val = zeta+d_zeta/2-8*eps
+    return shift_val
 
 # ## Function to perform multi-order estimation
 
 def multiorder_estimation(method,
                              phases, amplitudes,
-                             delta, confidence_alpha, confidence_beta,
-                             max_order, cutoff):
+                             eps, alpha, gamma,
+                             final_error, cutoff, rng = np.random.RandomState(42)):
     
-    betas = []
     
     estimates = []
     costs = []
@@ -98,139 +121,201 @@ def multiorder_estimation(method,
     multiplier = 1
     
     # Calculate the signal requirements at this order and the assoc. cost
-    confidence = confidence_alpha + confidence_beta
-    num_points, signal_length, num_samples = get_signal_requirements(confidence, delta)
+    confidence = 1-np.exp(-alpha)*(multiplier*final_error/np.pi)**gamma
+    num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
     cost = sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
     
     # Get the new signal and estimate aliased phases from this.
-    gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier)
+    gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng)
     phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
-    error_estimates = [delta for phase in phase_estimates]
+    error_estimates = [eps for phase in phase_estimates]
+    #print('phase estimates, order 0')
+    #print(phase_estimates)
+    #print('expected error: {}'.format(eps))
     
     # Add phase estimates and costs to data
     costs.append([cost for phase in phases])
     estimates.append(list(phase_estimates))
     
+    # Shift the unitary
+    shift_val = shift_value(phase_estimates, eps)
+    phases = (phases - shift_val) % (2*np.pi)
+    phase_estimates = (phase_estimates - shift_val) % (2*np.pi)
+    
+    d=1
+    #print('entering kappa finder')
+    #Find the first multiplier
+    try:
+        multiplier = kappa_finder(phase_estimates, eps, multiplier)
+    except ValueError:
+        print(r'Couldnt find good $k_1$, exiting')
+        return estimates, costs, ('kappa', d)  
+    #The first multiplier has to be larger than 1/d_zeta
+    if multiplier < 3*len(phases):
+        print(r'Got $k_1 < 3n_\phi$, exiting')
+        return estimates, costs, ('k1', d)  
+    kappas = [multiplier]
+    
+    
+    
+    while(multiplier < 2*eps/final_error):
 
-    for d in range(1, max_order+1): # Iterate over 5 more orders of QPE
-
-        confidence = confidence_alpha + confidence_beta * (max_order - d) / max_order
-        # Calculate the new best multiplier from the previous phase data.
-        # If this doesn't work, fail gracefully.
-        try:
-            betas.append(beta_finder(phase_estimates, delta, multiplier, np.pi / (2 * delta)))
-        except ValueError:
-            print('Couldnt find good beta, exiting')
-            break          
-        multiplier = np.prod(betas)
+        #print('trying at order d: ', d)
+        if(d>1):
+            # Calculate the new best multiplier from the previous phase data.
+            # If this doesn't work, fail gracefully.
+            #(d = 1 is excluded, because we have extra assumptions for it)
+            #print('entering kappa finder')
+            #print('input data:')
+            #print(phase_estimates, eps, multiplier)
+            try:
+                kappas.append(kappa_finder(phase_estimates, eps, multiplier))
+            except ValueError:
+                print('Couldnt find good kappa, exiting')
+                return estimates, costs, ('kappa', d)            
+            multiplier = np.prod(kappas)
 
         # Calculate the signal requirements at this order and the assoc. cost
-        num_points, signal_length, num_samples = get_signal_requirements(confidence, delta)
+        confidence = 1-np.exp(-alpha)*(multiplier*final_error/np.pi)**gamma
+        num_points, signal_length, num_samples = get_signal_requirements(confidence, eps)
         cost += sum([num_samples * 2 * k * multiplier for k in range(signal_length + 1)])
         
         # Get the new signal and estimate aliased phases from this.
-        gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier)
+        gk_noisy = get_gk(signal_length, phases, amplitudes, num_samples, multiplier, rng)
         aliased_phase_estimates = estimate_phases(method, gk_noisy, cutoff, num_points)
-        aliased_error_estimates = [delta for phase in aliased_phase_estimates]
+        #print('aliased phase estimates at order {}'.format(d))
+        #print(aliased_phase_estimates)
+        #print('expected phase estimates at this order')
+        #print((phases+shift_val) % (2*np.pi))
+        #print((phases * multiplier) % (2 * np.pi))
+        #print('expected phase estimates at this order from prev order')
+        #print((phase_estimates+shift_val) % (2*np.pi))
+        #print((np.array(phase_estimates) * multiplier) % (2 * np.pi))
+        
+        #If the new estimates are not close enough to the old estimates, exit
+        if(
+            np.max([
+                np.min(
+                    [abs_phase_difference(multiplier*phi, theta)
+                     for phi in phase_estimates]
+                ) for theta in aliased_phase_estimates]) > 2*eps*(1+kappas[-1])
+            or
+            np.max([
+                np.min(
+                    [abs_phase_difference(multiplier*phi, theta)
+                     for theta in aliased_phase_estimates]
+                ) for phi in phase_estimates]) > 2*eps*(1+kappas[-1])
+        ):
+            print('Cannot match new estimates to old estimates, exiting')
+            return estimates, costs, ('match', d)  
 
         # Match phases --- generate new estimates of phases at each order
-        phase_estimates, error_estimates = match_phases(
-            phase_estimates, error_estimates, multiplier,
-            aliased_phase_estimates, aliased_error_estimates)
+        phase_estimates = match_phases(
+            phase_estimates,
+            multiplier,
+            aliased_phase_estimates)
+        #print('phase estimates at order {}'.format(d))
+        #print((phase_estimates+shift_val) % (2*np.pi))
+        #print('expected error: {}'.format(eps/multiplier))
         
         # If we have completely failed, do it gracefully
         if len(phase_estimates) == 0:
             print('No phases left, exiting')
-            break
+            return estimates, costs, ('empty', d)  
+        #If the estimates are outside of the allowed region, exit
+        if(
+            np.min(phase_estimates) < np.pi/multiplier
+            or
+            np.max(phase_estimates) > np.pi*(2*np.floor(multiplier)-1)/multiplier
+        ):
+            print('Got phase estimates outside of the allowed region, exiting')
+            return estimates, costs, ('region', d)  
         
         # Add phase estimates errors and costs to data
         costs.append([cost for phase in phases])
-        estimates.append(phase_estimates)
+        estimates.append((phase_estimates+shift_val) % (2*np.pi))
+        
+        d+=1
             
-    return estimates, costs    
+    return estimates, costs, ('success', d)    
 
 
 def get_estimation_errors(all_phase_estimates, phases):
-    estimation_errors = []
-    for phase_estimates in all_phase_estimates:
-        estimation_errors.append([min([abs_phase_difference(phase_true, phase_est)
-                                   for phase_est in phase_estimates])
-                              for phase_true in phases])
+    phase_estimates = all_phase_estimates[-1]
+    estimation_errors = [min([abs_phase_difference(phase_true, phase_est)
+                              for phase_est in phase_estimates])
+                         for phase_true in phases]
     return(estimation_errors)
 
-def get_estimation_failures(all_phase_estimates, phases, delta, max_order):
-    # This is my current definition of 'failure' --- if we either see
-    # a spurious phase or don't pick up a given eigenvalue.
-    # Haven't looked into this too much though.
-        failure_booleans = []
-        for phase_estimates in all_phase_estimates:
-            spurious_phases = [phase_est for phase_est in phase_estimates
-                       if min([abs_phase_difference(phase_est, phase_true)
-                               for phase_true in phases]) > delta]
-            errors = get_estimation_errors([phase_estimates], phases)
-            if len(spurious_phases) == 0 and np.max(errors) < delta:
-                failure_booleans.append([False for phase in phases])
-            else:
-                failure_booleans.append([True for phase in phases])
-        if(len(failure_booleans) < max_order):
-            failure_booleans.append(True)
-        return(failure_booleans)
 
 def analyse_error_estimation(method,
                              phases, amplitudes,
-                             delta, confidence_alpha, confidence_beta,
-                             max_order, cutoff):
+                             eps, alpha, gamma,
+                             final_error, cutoff,
+                             rng = np.random.RandomState(42)):
     
-    all_phase_estimates, costs = multiorder_estimation(method,
+    all_phase_estimates, costs, error_flag = multiorder_estimation(method,
                              phases, amplitudes,
-                             delta, confidence_alpha, confidence_beta,
-                             max_order, cutoff)
+                             eps, alpha, gamma,
+                             final_error, cutoff, rng)
     
-    errors = get_estimation_errors(all_phase_estimates, phases)
-    failure_booleans = get_estimation_failures(all_phase_estimates, phases, delta, max_order)
+    est_errors = get_estimation_errors(all_phase_estimates, phases)
+    
+    fail = (error_flag[0]!='success')
+    print(error_flag)
 
-    return errors, failure_booleans, costs
+    return est_errors, costs[-1], fail
 
 
 # ## Running script on some test data
 
 
-def run_estimation_errors(method, num_phases, max_order, delta, confidence_alpha, confidence_beta, cutoff, num_repetitions):
-    est_errors_big = []
-    failure_booleans_big = []
-    costs_big = []
-
-    #rng = np.random.RandomState(42)
+def run_estimation_errors(
+    final_errors, method, num_phases, eps, alpha, gamma, cutoff, num_repetitions, rng = np.random.RandomState(42)):
     
-    for rep in range(num_repetitions):
+    est_errors_big = []
+    costs_big = []
+    failures_big = []
+    
+    for final_error in final_errors:
+        print('Processing final error:', final_error)
+        est_errors = []
+        costs = []
+        failures = []
+        for rep in range(num_repetitions):
+
+            start = datetime.datetime.now()
+            print(rep, 'Started at:', start)
+
+            phases = rng.uniform(0, 2*np.pi, num_phases)
+            print(phases)
+            amplitudes = np.ones(num_phases)
+            amplitudes = amplitudes / np.sum(amplitudes)
+            estimation_errors, cost, failure = analyse_error_estimation(
+                method,
+                phases, amplitudes,
+                eps, alpha, gamma,
+                final_error, cutoff, rng)
+            est_errors.append(estimation_errors)
+            costs.append(cost)
+            failures.append(failure)
+
+            end = datetime.datetime.now()
+            print('Executed in:', end-start)
         
-        start = datetime.datetime.now()
-        print(rep, 'Started at:', start)
-        
-        phases = rng.uniform(0, 2*np.pi, num_phases)
-        amplitudes = np.ones(num_phases)
-        amplitudes = amplitudes / np.sum(amplitudes)
-        estimation_errors, failure_booleans, costs = analyse_error_estimation(
-            method,
-            phases, amplitudes,
-            delta, confidence_alpha, confidence_beta,
-            max_order, cutoff)
-        est_errors_big.append(estimation_errors)
-        failure_booleans_big.append(failure_booleans)
+        print(f'Proportion of simulations exited before last order:{np.sum(failures)*100/num_repetitions}%')
+    
+        est_errors_big.append(est_errors)
         costs_big.append(costs)
-        
-        end = datetime.datetime.now()
-        print('Executed in:', end-start)
-        
-    print(f'Proportion of simulations exited before last order:{np.sum([len(f)<max_order+1 for f in failure_booleans_big])*100/num_repetitions}%')
-        
-    return(costs_big, est_errors_big, failure_booleans_big)
+        failures_big.append(failures)
+    
+    return(costs_big, est_errors_big, failures_big)
 
 
 # ## Binning results and rejecting things far outside our confidence interval
 
 
-def plot_estimation_errors(costs_big, est_errors_big):
+def plot_estimation_errors(costs_big, est_errors_big, color = 'black'):
     midpoints = np.sort(np.kron(10**np.arange(
         start = np.floor(np.log10(np.min([np.min(c) for c in costs_big]))),
         stop = 1+np.ceil(np.log10(np.max([np.max(c) for c in costs_big])))
@@ -242,13 +327,9 @@ def plot_estimation_errors(costs_big, est_errors_big):
     num_edges = len(edges)
     bin_xvals = [[] for x in midpoints]
     bin_yvals = [[] for x in midpoints]
-    num_rejections = 0
     for costs, est_errors in zip(costs_big, est_errors_big):
         for cvec, errorvec in zip(costs, est_errors):
             for c, error in zip(cvec, errorvec):
-                if error > 0.5:
-                    num_rejections += 1
-                    continue
                 if c > right_edge:
                     bin_xvals[-1].append(c)
                     bin_yvals[-1].append(error)
@@ -256,7 +337,6 @@ def plot_estimation_errors(costs_big, est_errors_big):
                     index = min([j for j in range(num_edges) if edges[j] > c])
                     bin_xvals[index].append(c)
                     bin_yvals[index].append(error)
-    print('Proportion of rejected samples: {}'.format(num_rejections / sum([len(b) for b in bin_xvals])))
     for n in range(num_edges, -1, -1):
         if len(bin_xvals[n]) == 0:
             del bin_xvals[n]
@@ -264,21 +344,25 @@ def plot_estimation_errors(costs_big, est_errors_big):
             
     binx_means = [np.mean(b) for b in bin_xvals]
     binx_err = [np.std(b) / np.sqrt(len(b)) * 2 for b in bin_xvals]
-    biny_means = [np.median(b) for b in bin_yvals]
-    biny_max = [np.percentile(b, 75) for b in bin_yvals]
-    biny_min  = [np.percentile(b, 25) for b in bin_yvals]
+    biny_means = [np.mean(b) for b in bin_yvals]
+    biny_err = [np.std(b) / np.sqrt(len(b)) * 2 for b in bin_yvals]
     
-    plt.plot([x for b in bin_xvals for x in b], [y for b in bin_yvals for y in b], 'k.', markersize=1, label='Data points')
+    factor = np.exp(np.polyfit(np.zeros(len(binx_means)), np.log(binx_means)+np.log(biny_means), 0))
+    print('Factor:',factor)
+    xvec_temp = np.linspace(min(binx_means)/1e1, max(binx_means)*1e1)
+    plt.plot(xvec_temp, factor/xvec_temp, '--', color = 'k')
+    
+    plt.plot([x for b in bin_xvals for x in b], [y for b in bin_yvals for y in b],
+             '.', markersize = 1, color = color)
     #plt.plot(binx_means, biny_means, 'r+', markersize=20, markeredgewidth=3)
-    plt.plot(binx_means, biny_means, 'ro', markersize=5, label = 'Binned means')
-    plt.errorbar(binx_means, biny_means, yerr=(biny_min, biny_max), xerr=binx_err, fmt='r.',
-                 color='red', capsize=8, capthick=3, linewidth=3)
+    plt.plot(binx_means, biny_means, 'o', markersize=5, color = color)
+    plt.errorbar(binx_means, biny_means, yerr=biny_err, xerr=binx_err, fmt='.',
+                 color=color, capsize=8, capthick=3, linewidth=3)
     plt.xscale('log')
     plt.yscale('log')
     #plt.plot(midpoints, 5000/midpoints, 'b--', label=r'$y\sim 1/x$')
-    plt.legend()#fontsize=22)
-    plt.xlabel('Total number of unitary applications')
-    plt.ylabel('Estimator error')
+    plt.xlabel(r'Total quantum cost $T$')
+    plt.ylabel(r'Estimator error $\delta$')
     
 def plot_phase_estimates(true_phases, phase_estimates, max_order):
 
