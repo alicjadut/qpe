@@ -155,12 +155,12 @@ def multiorder_estimation(method,
         except ValueError:
             print(r'Couldnt find good kappa, exiting')
             return estimates, costs, ('kappa', d)  
-            #The first multiplier has to be larger than 1/d_zeta
+            #The first multiplier has to be larger than 1/d_zeta          
+        multiplier = np.prod(kappas)
         if(d==1):
             if multiplier < 3*len(phases):
                 print(r'Got $k_1 < 3n_\phi$, exiting')
-                return estimates, costs, ('k1', d)          
-        multiplier = np.prod(kappas)
+                return estimates, costs, ('k1', d)
 
         # Calculate the signal requirements at this order and the assoc. cost
         confidence = 1-np.exp(-alpha)*(multiplier*final_error/np.pi)**gamma
