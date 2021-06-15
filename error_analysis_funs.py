@@ -151,7 +151,7 @@ def multiorder_estimation(method,
         try:
             # Calculate the new best multiplier from the previous phase data.
             # If this doesn't work, fail gracefully.
-            multiplier = kappa_finder(phase_estimates, eps, multiplier)
+            kappas.append(kappa_finder(phase_estimates, eps, multiplier))
         except ValueError:
             print(r'Couldnt find good kappa, exiting')
             return estimates, costs, ('kappa', d)  
