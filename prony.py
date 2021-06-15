@@ -17,12 +17,14 @@ def prolong(signal):
 def prony(signal, num_phases, prolong_signal = False):
     
     if prolong_signal:
-        signal = prolong(signal)
+        long_signal = prolong(signal)
+    else:
+        long_signal = signal
     
     hankel0 = scipy.linalg.hankel(
-        c=signal[:num_phases], r=signal[num_phases-1:-1])
+        c=long_signal[:num_phases], r=long_signal[num_phases-1:-1])
     hankel1 = scipy.linalg.hankel(
-        c=signal[1:num_phases+1], r=signal[num_phases:])
+        c=long_signal[1:num_phases+1], r=long_signal[num_phases:])
 
     shift_matrix = scipy.linalg.lstsq(hankel0.T, hankel1.T)[0]
     
