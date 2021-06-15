@@ -143,37 +143,24 @@ def multiorder_estimation(method,
     phase_estimates = (phase_estimates - shift_val) % (2*np.pi)
     
     d=1
-    #print('entering kappa finder')
-    #Find the first multiplier
-    try:
-        multiplier = kappa_finder(phase_estimates, eps, multiplier)
-    except ValueError:
-        print(r'Couldnt find good $k_1$, exiting')
-        return estimates, costs, ('kappa', d)  
-    #The first multiplier has to be larger than 1/d_zeta
-    if multiplier < 3*len(phases):
-        print(r'Got $k_1 < 3n_\phi$, exiting')
-        return estimates, costs, ('k1', d)  
-    kappas = [multiplier]
-    
+    kappas = [1]   
     
     
     while(multiplier < 2*eps/final_error):
 
-        #print('trying at order d: ', d)
-        if(d>1):
+        try:
             # Calculate the new best multiplier from the previous phase data.
             # If this doesn't work, fail gracefully.
-            #(d = 1 is excluded, because we have extra assumptions for it)
-            #print('entering kappa finder')
-            #print('input data:')
-            #print(phase_estimates, eps, multiplier)
-            try:
-                kappas.append(kappa_finder(phase_estimates, eps, multiplier))
-            except ValueError:
-                print('Couldnt find good kappa, exiting')
-                return estimates, costs, ('kappa', d)            
-            multiplier = np.prod(kappas)
+            multiplier = kappa_finder(phase_estimates, eps, multiplier)
+        except ValueError:
+            print(r'Couldnt find good kappa, exiting')
+            return estimates, costs, ('kappa', d)  
+            #The first multiplier has to be larger than 1/d_zeta
+        if(d==1):
+            if multiplier < 3*len(phases):
+                print(r'Got $k_1 < 3n_\phi$, exiting')
+                return estimates, costs, ('k1', d)          
+        multiplier = np.prod(kappas)
 
         # Calculate the signal requirements at this order and the assoc. cost
         confidence = 1-np.exp(-alpha)*(multiplier*final_error/np.pi)**gamma
