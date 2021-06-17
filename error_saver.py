@@ -20,7 +20,7 @@ from error_analysis_funs import *
 
 rng = np.random.RandomState(42)
 phases = np.load('phases.npy')
-all_phases = phases[rep]
+all_phases = phases[rep][:, :num_phases]
 
 costs, est_errors, failure_booleans = run_estimation_errors(
     all_phases,
