@@ -18,10 +18,13 @@ cutoff = 1/3/num_phases
 
 from error_analysis_funs import *
 
-rng = np.random.RandomState(42+rep)
+rng = np.random.RandomState(42)
+phases = np.load('phases.npy')
+all_phases = phases[rep]
 
 costs, est_errors, failure_booleans = run_estimation_errors(
-    [final_error], method, num_phases, eps, alpha, gamma, cutoff, num_repetitions, rng)
+    all_phases,
+    [final_error], method, eps, alpha, gamma, cutoff, num_repetitions, rng)
 
 
 np.save(data_dir+

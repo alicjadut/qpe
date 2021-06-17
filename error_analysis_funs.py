@@ -258,7 +258,8 @@ def analyse_error_estimation(method,
 
 
 def run_estimation_errors(
-    final_errors, method, num_phases, eps, alpha, gamma, cutoff, num_repetitions, rng = np.random.RandomState(42)):
+    all_phases,
+    final_errors, method, eps, alpha, gamma, cutoff, num_repetitions, rng = np.random.RandomState(42)):
     
     est_errors_big = []
     costs_big = []
@@ -273,9 +274,10 @@ def run_estimation_errors(
 
             start = datetime.datetime.now()
             print(rep, 'Started at:', start)
-
-            phases = rng.uniform(0, 2*np.pi, num_phases)
+            #phases = rng.uniform(0, 2*np.pi, num_phases)
+            phases = all_phases[rep]
             print(phases)
+            num_phases = len(phases)
             amplitudes = np.ones(num_phases)
             amplitudes = amplitudes / np.sum(amplitudes)
             estimation_errors, cost, failure = analyse_error_estimation(
